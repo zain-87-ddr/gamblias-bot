@@ -6,7 +6,6 @@ import {
   type Message,
 } from "discord.js";
 import { ALLOWED_LINK_DOMAINS } from "./allowed-domains.js";
-import { logAutomaticAction } from "../modlogs/index.js";
 
 const LINK_PATTERN = /https?:\/\/[^\s<>()]+/gi;
 
@@ -66,14 +65,6 @@ async function handleLink(message: Message) {
       // Continue with the warning if deletion is not permitted.
     }
   }
-
-  void logAutomaticAction(
-    message.guild,
-    message.author,
-    "مكافحة الروابط",
-    "إرسال روابط غير مسموح بها",
-  );
-
   if (!message.channel.isSendable()) {
     return;
   }
