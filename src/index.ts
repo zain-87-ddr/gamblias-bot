@@ -68,7 +68,6 @@ registerAntiSpam(client);
 registerAntiLink(client);
 registerAntiMassMention(client);
 registerAutoCleanupSystem(client);
-registerModLogsSystem(client);
 
 async function replyWithError(interaction: ChatInputCommandInteraction) {
   const message = "Something went wrong while running that command.";
