@@ -7,7 +7,6 @@ import {
   type Message,
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.js";
-import { logModerationAction } from "../modlogs/index.js";
 
 const TIMEOUT_COMMAND = "تايم";
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -76,10 +75,19 @@ function parseDuration(input: string): ParsedDuration | null {
 
   const value = Number(durationMatch[1]);
   const unit = durationMatch[2].toLowerCase() as "m" | "h" | "d";
-  const multiplier = unit === "m" ? 60 * 1000 : unit === "h" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  const multiplier =
+    unit === "m"
+      ? 60 * 1000
+      : unit === "h"
+        ? 60 * 60 * 1000
+        : 24 * 60 * 60 * 1000;
   const durationMs = value * multiplier;
 
-  if (!Number.isSafeInteger(durationMs) || durationMs <= 0 || durationMs > MAX_TIMEOUT_MS) {
+  if (
+    !Number.isSafeInteger(durationMs) ||
+    durationMs <= 0 ||
+    durationMs > MAX_TIMEOUT_MS
+  ) {
     return null;
   }
 
@@ -89,7 +97,10 @@ function parseDuration(input: string): ParsedDuration | null {
   };
 }
 
-async function resolveTarget(message: Message, input: string): Promise<TimeoutTarget> {
+async function resolveTarget(
+  message: Message,
+  input: string,
+): Promise<TimeoutTarget> {
   const guild = message.guild;
   if (!guild) {
     return { target: null, reason: input };
@@ -117,7 +128,10 @@ async function resolveTarget(message: Message, input: string): Promise<TimeoutTa
         referencedMessage,
       };
     } catch {
-      await reply(message, "لم يتم العثور على العضو صاحب الرسالة التي تم الرد عليها.");
+      await reply(
+        message,
+        "لم يتم العثور على العضو صاحب الرسالة التي تم الرد عليها.",
+      );
       return { target: null, reason: "" };
     }
   }
@@ -146,7 +160,11 @@ async function handleTimeout(message: Message) {
   }
 
   const input = content.slice(TIMEOUT_COMMAND.length).trim();
-  const { target, reason: targetInput, referencedMessage } = await resolveTarget(message, input);
+  const {
+    target,
+    reason: targetInput,
+    referencedMessage,
+  } = await resolveTarget(message, input);
 
   if (!target) {
     await reply(message, "يرجى الرد على رسالة العضو أو ذكره بعد الأمر.");
@@ -165,6 +183,7 @@ async function handleTimeout(message: Message) {
   const reasonInput = targetInput
     .replace(/^\d+[mhd](?:\s+|$)/i, "")
     .trim();
+
   if (!reasonInput) {
     await reply(message, "يرجى كتابة سبب التايم.");
     return;
@@ -175,17 +194,25 @@ async function handleTimeout(message: Message) {
     target.id === message.guild.ownerId ||
     moderator.roles.highest.comparePositionTo(target.roles.highest) <= 0
   ) {
-    await reply(message, "🚫 لا يمكنك عمل تايم لشخص رتبته أعلى منك أو مساوية لرتبتك.");
+    await reply(
+      message,
+      "🚫 لا يمكنك عمل تايم لشخص رتبته أعلى منك أو مساوية لرتبتك.",
+    );
     return;
   }
 
-  const botMember = message.guild.members.me ?? (await message.guild.members.fetchMe());
+  const botMember =
+    message.guild.members.me ?? (await message.guild.members.fetchMe());
+
   if (
     target.id === message.client.user?.id ||
     !botMember.permissions.has(PermissionFlagsBits.ModerateMembers) ||
     botMember.roles.highest.comparePositionTo(target.roles.highest) <= 0
   ) {
-    await reply(message, "لا يستطيع البوت عمل تايم لهذا العضو بسبب الصلاحيات.");
+    await reply(
+      message,
+      "لا يستطيع البوت عمل تايم لهذا العضو بسبب الصلاحيات.",
+    );
     return;
   }
 
@@ -203,16 +230,20 @@ async function handleTimeout(message: Message) {
     }
   }
 
-  await target.timeout(parsedDuration.durationMs, reasonInput.slice(0, 512));
-  void logModerationAction(
-    message.guild,
-    target,
-    moderator,
-    "تايم أوت",
-    reasonInput,
+  await target.timeout(
+    parsedDuration.durationMs,
+    reasonInput.slice(0, 512),
   );
+
   await channel.send({
-    embeds: [timeoutEmbed(target, moderator, parsedDuration.label, reasonInput)],
+    embeds: [
+      timeoutEmbed(
+        target,
+        moderator,
+        parsedDuration.label,
+        reasonInput,
+      ),
+    ],
   });
 }
 
@@ -222,8 +253,14 @@ export function registerTimeoutSystem(client: Client) {
       await handleTimeout(message);
     } catch (error) {
       console.error("Timeout system error:", error);
-      if (message.guild && message.content.trim().startsWith(TIMEOUT_COMMAND)) {
-        await reply(message, "حدث خطأ أثناء تنفيذ التايم. يرجى المحاولة مرة أخرى.");
+      if (
+        message.guild &&
+        message.content.trim().startsWith(TIMEOUT_COMMAND)
+      ) {
+        await reply(
+          message,
+          "حدث خطأ أثناء تنفيذ التايم. يرجى المحاولة مرة أخرى.",
+        );
       }
     }
   });
