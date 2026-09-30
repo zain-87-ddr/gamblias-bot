@@ -6,7 +6,6 @@ import {
   type GuildMember,
   type Message,
 } from "discord.js";
-import { logAutomaticAction } from "../modlogs/index.js";
 import {
   initializeSpamStore,
   recordSpamMessage,
@@ -87,12 +86,6 @@ async function handleSpam(message: Message) {
   }
 
   await message.member.timeout(SPAM_TIMEOUT_MS, "إرسال رسائل بشكل متكرر");
-  void logAutomaticAction(
-    message.guild,
-    message.member,
-    "مكافحة السبام",
-    "إرسال رسائل بشكل متكرر",
-  );
 
   if (!message.channel.isSendable()) {
     return;
