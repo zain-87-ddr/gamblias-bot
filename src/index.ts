@@ -3,7 +3,7 @@ import {
   Events,
   GatewayIntentBits,
   type ChatInputCommandInteraction,
-} from "discord.ts";
+} from "discord.js";
 import { registerAutoCleanupSystem } from "./cleanup/index.ts";
 import { registerAntiLink } from "./automod/anti-link.ts";
 import { registerAntiMassMention } from "./automod/anti-mass-mention.ts";
