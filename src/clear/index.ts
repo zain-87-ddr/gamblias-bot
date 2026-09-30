@@ -5,6 +5,7 @@ import {
   type Client,
   type Message,
 } from "discord.js";
+import { sendClearLog } from "../logs/index.ts";
 
 const CLEAR_COMMAND = ".مسح";
 const DEFAULT_AMOUNT = 5;
@@ -155,6 +156,14 @@ async function handleClear(message: Message) {
   if (deleted === 0) {
     return;
   }
+
+  await sendClearLog(
+    message.guild,
+    message.author.toString(),
+    deleted,
+    channel.toString(),
+    targetUserMention,
+  );
 
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
