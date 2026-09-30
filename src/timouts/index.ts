@@ -7,7 +7,6 @@ import {
   type Message,
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.js";
-import { logModerationAction } from "../modlogs/index.js";
 
 const TIMEOUT_COMMAND = "تايم";
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -204,13 +203,7 @@ async function handleTimeout(message: Message) {
   }
 
   await target.timeout(parsedDuration.durationMs, reasonInput.slice(0, 512));
-  void logModerationAction(
-    message.guild,
-    target,
-    moderator,
-    "تايم أوت",
-    reasonInput,
-  );
+  
   await channel.send({
     embeds: [timeoutEmbed(target, moderator, parsedDuration.label, reasonInput)],
   });
