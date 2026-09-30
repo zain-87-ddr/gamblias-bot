@@ -7,6 +7,7 @@ import {
   type Message,
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.js";
+import { sendTimeoutLog } from "../logs/index.ts";
 
 const TIMEOUT_COMMAND = "تايم";
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -102,11 +103,13 @@ async function resolveTarget(
   input: string,
 ): Promise<TimeoutTarget> {
   const guild = message.guild;
+
   if (!guild) {
     return { target: null, reason: input };
   }
 
   const mention = input.match(/^<@!?(\d+)>/);
+
   if (mention) {
     try {
       return {
@@ -114,14 +117,22 @@ async function resolveTarget(
         reason: input.slice(mention[0].length).trim(),
       };
     } catch {
-      await reply(message, "لم يتم العثور على العضو المذكور في السيرفر.");
-      return { target: null, reason: "" };
+      await reply(
+        message,
+        "لم يتم العثور على العضو المذكور في السيرفر.",
+      );
+
+      return {
+        target: null,
+        reason: "",
+      };
     }
   }
 
   if (message.reference?.messageId) {
     try {
       const referencedMessage = await message.fetchReference();
+
       return {
         target: await guild.members.fetch(referencedMessage.author.id),
         reason: input,
@@ -132,11 +143,18 @@ async function resolveTarget(
         message,
         "لم يتم العثور على العضو صاحب الرسالة التي تم الرد عليها.",
       );
-      return { target: null, reason: "" };
+
+      return {
+        target: null,
+        reason: "",
+      };
     }
   }
 
-  return { target: null, reason: input };
+  return {
+    target: null,
+    reason: input,
+  };
 }
 
 async function handleTimeout(message: Message) {
@@ -145,6 +163,7 @@ async function handleTimeout(message: Message) {
   }
 
   const content = message.content.trim();
+
   if (
     content !== TIMEOUT_COMMAND &&
     !content.startsWith(`${TIMEOUT_COMMAND} `) &&
@@ -154,12 +173,17 @@ async function handleTimeout(message: Message) {
   }
 
   const moderator = message.member;
+
   if (!moderator.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-    await reply(message, "ليس لديك الصلاحية اللازمة لاستخدام أمر التايم.");
+    await reply(
+      message,
+      "ليس لديك الصلاحية اللازمة لاستخدام أمر التايم.",
+    );
     return;
   }
 
   const input = content.slice(TIMEOUT_COMMAND.length).trim();
+
   const {
     target,
     reason: targetInput,
@@ -167,11 +191,15 @@ async function handleTimeout(message: Message) {
   } = await resolveTarget(message, input);
 
   if (!target) {
-    await reply(message, "يرجى الرد على رسالة العضو أو ذكره بعد الأمر.");
+    await reply(
+      message,
+      "يرجى الرد على رسالة العضو أو ذكره بعد الأمر.",
+    );
     return;
   }
 
   const parsedDuration = parseDuration(targetInput);
+
   if (!parsedDuration) {
     await reply(
       message,
@@ -202,7 +230,8 @@ async function handleTimeout(message: Message) {
   }
 
   const botMember =
-    message.guild.members.me ?? (await message.guild.members.fetchMe());
+    message.guild.members.me ??
+    (await message.guild.members.fetchMe());
 
   if (
     target.id === message.client.user?.id ||
@@ -217,8 +246,12 @@ async function handleTimeout(message: Message) {
   }
 
   const channel = message.channel;
+
   if (!channel.isSendable()) {
-    await reply(message, "لا يمكن إرسال رسالة التايم في هذه القناة.");
+    await reply(
+      message,
+      "لا يمكن إرسال رسالة التايم في هذه القناة.",
+    );
     return;
   }
 
@@ -233,6 +266,16 @@ async function handleTimeout(message: Message) {
   await target.timeout(
     parsedDuration.durationMs,
     reasonInput.slice(0, 512),
+  );
+
+  await sendTimeoutLog(
+    message.guild,
+    target.user.username,
+    target.toString(),
+    target.id,
+    moderator.toString(),
+    parsedDuration.label,
+    reasonInput,
   );
 
   await channel.send({
@@ -253,6 +296,7 @@ export function registerTimeoutSystem(client: Client) {
       await handleTimeout(message);
     } catch (error) {
       console.error("Timeout system error:", error);
+
       if (
         message.guild &&
         message.content.trim().startsWith(TIMEOUT_COMMAND)
