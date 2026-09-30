@@ -4,6 +4,7 @@ import {
   GatewayIntentBits,
   type ChatInputCommandInteraction,
 } from "discord.js";
+import { registerClearSystem } from "./clear/index.ts";
 import { registerAutoCleanupSystem } from "./cleanup/index.ts";
 import { registerAntiLink } from "./automod/anti-link.ts";
 import { registerAntiMassMention } from "./automod/anti-mass-mention.ts";
