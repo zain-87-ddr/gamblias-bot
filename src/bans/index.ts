@@ -7,7 +7,7 @@ import {
   type Message,
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.js";
-import { logModerationAction } from "../modlogs/index.js";
+
 
 const BAN_COMMAND = "بان";
 const UNBAN_COMMAND = "انبان";
@@ -164,11 +164,7 @@ async function handleBan(message: Message) {
   }
 
   await target.ban({ reason: reason.slice(0, 512) });
-  void logModerationAction(message.guild, target, moderator, "بان", reason);
-  await channel.send({
-    embeds: [banEmbed(target, moderator, reason)],
-  });
-}
+  }
 
 async function handleUnban(message: Message) {
   if (!message.guild || !message.member || message.author.bot) {
