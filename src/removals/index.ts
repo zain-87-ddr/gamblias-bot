@@ -7,7 +7,6 @@ import {
   type Message,
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.js";
-import { logModerationAction } from "../modlogs/index.js";
 import { removeWarning } from "../warnings/store.js";
 
 const UNWARN_COMMAND = "انورن";
@@ -203,13 +202,7 @@ async function handleUnwarn(message: Message) {
 
   const count = await removeWarning(message.guild.id, resolved.target.id);
   if (count > 0) {
-    void logModerationAction(
-      message.guild,
-      resolved.target,
-      message.member,
-      "إزالة تحذير",
-      reason,
-    );
+  
   }
   await channel.send({
     embeds: [
