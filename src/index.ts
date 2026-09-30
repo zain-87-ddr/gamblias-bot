@@ -13,6 +13,8 @@ import { registerBanSystem } from "./bans/index.ts";
 import { commands } from "./commands/index.ts";
 import { getBotConfig } from "./config.ts";
 import {
+  sendMemberJoinLog,
+  sendMemberLeaveLog,
   sendMessageDeleteLog,
   sendMessageEditLog,
   sendVoiceJoinLog,
@@ -43,9 +45,34 @@ client.on(Events.GuildMemberAdd, async (member) => {
 
   try {
     await sendWelcomeMessage(member.guild, member);
+
+    await sendMemberJoinLog(
+      member.guild,
+      member.user.username,
+      member.toString(),
+      member.id,
+      member.user.createdAt,
+      member.guild.memberCount,
+    );
   } catch (error) {
     console.error(
-      `Could not welcome ${member.user.tag} in ${member.guild.name}:`,
+      `Could not handle member join for ${member.user.tag} in ${member.guild.name}:`,
+      error,
+    );
+  }
+});
+
+client.on(Events.GuildMemberRemove, async (member) => {
+  try {
+    await sendMemberLeaveLog(
+      member.guild,
+      member.user.username,
+      member.id,
+      member.guild.memberCount,
+    );
+  } catch (error) {
+    console.error(
+      `Could not handle member leave for ${member.user.tag} in ${member.guild.name}:`,
       error,
     );
   }
