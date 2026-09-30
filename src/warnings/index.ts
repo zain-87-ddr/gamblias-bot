@@ -7,7 +7,7 @@ import {
   type Message,
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.js";
-import { logModerationAction } from "../modlogs/index.js";
+
 import {
   addWarning,
   initializeWarningStore,
@@ -181,14 +181,7 @@ async function handleWarning(message: Message) {
       moderator,
       "تحذير",
       reason,
-    );
-    void logModerationAction(
-      message.guild,
-      target,
-      moderator,
-      "تايم أوت",
-      "الوصول إلى ثلاثة تحذيرات",
-    );
+    )
     await channel.send({
       content: target.toString(),
       embeds: [maximumWarningsEmbed(target, moderator)],
