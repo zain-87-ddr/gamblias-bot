@@ -3,6 +3,7 @@ import {
   ChannelType,
   type Guild,
   type GuildTextBasedChannel,
+  type Message,
 } from "discord.js";
 
 const LOG_CATEGORY_NAME = "GAMBLIAS LOGS";
@@ -14,6 +15,8 @@ const LOG_CHANNEL_NAMES = {
   clear: "clear-logs",
   automod: "automod-logs",
   member: "member-logs",
+  message: "message-logs",
+  voice: "voice-logs",
 } as const;
 
 async function getLogChannel(
@@ -451,3 +454,168 @@ export async function sendMemberLeaveLog(
     embeds: [embed],
   });
 }
+
+export async function sendMessageDeleteLog(
+  guild: Guild,
+  message: Message,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.message,
+  );
+
+  if (!channel) {
+    return;
+  }
+
+  const content = message.content.trim() || "لا يوجد محتوى نصي";
+
+  const embed = new EmbedBuilder()
+    .setColor(0xef4444)
+    .setTitle("🗑️ تم حذف رسالة")
+    .addFields(
+      {
+        name: "👤 العضو",
+        value: `${message.author.toString()}\n${message.author.username}`,
+        inline: true,
+      },
+      {
+        name: "📍 القناة",
+        value: message.channel.toString(),
+        inline: true,
+      },
+      {
+        name: "🆔 Message ID",
+        value: `\`${message.id}\``,
+        inline: false,
+      },
+      {
+        name: "💬 محتوى الرسالة",
+        value: content.slice(0, 1024),
+        inline: false,
+      },
+    )
+    .setTimestamp();
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
+
+export async function sendMessageEditLog(
+  guild: Guild,
+  oldMessage: Message,
+  newMessage: Message,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.message,
+  );
+
+  if (!channel) {
+    return;
+  }
+
+  const oldContent =
+    oldMessage.content.trim() || "لا يوجد محتوى نصي";
+
+  const newContent =
+    newMessage.content.trim() || "لا يوجد محتوى نصي";
+
+  const embed = new EmbedBuilder()
+    .setColor(0xf59e0b)
+    .setTitle("✏️ تم تعديل رسالة")
+    .addFields(
+      {
+        name: "👤 العضو",
+        value: `${newMessage.author.toString()}\n${newMessage.author.username}`,
+        inline: true,
+      },
+      {
+        name: "📍 القناة",
+        value: newMessage.channel.toString(),
+        inline: true,
+      },
+      {
+        name: "🆔 Message ID",
+        value: `\`${newMessage.id}\``,
+        inline: false,
+      },
+      {
+        name: "📄 قبل التعديل",
+        value: oldContent.slice(0, 1024),
+        inline: false,
+      },
+      {
+        name: "📝 بعد التعديل",
+        value: newContent.slice(0, 1024),
+        inline: false,
+      },
+    )
+    .setTimestamp();
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
+
+export async function sendVoiceJoinLog(
+  guild: Guild,
+  memberMention: string,
+  memberId: string,
+  channelName: string,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.voice,
+  );
+
+  if (!channel) {
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0x22c55e)
+    .setTitle("🟢 دخل Voice")
+    .addFields(
+      {
+        name: "👤 العضو",
+        value: memberMention,
+        inline: true,
+      },
+      {
+        name: "🆔 ID",
+        value: `\`${memberId}\``,
+        inline: true,
+      },
+      {
+        name: "🎙️ القناة",
+        value: channelName,
+        inline: false,
+      },
+    )
+    .setTimestamp();
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
+
+export async function sendVoiceLeaveLog(
+  guild: Guild,
+  memberMention: string,
+  memberId: string,
+  channelName: string,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.voice,
+  );
+
+  if (!channel) {
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0xef4444)
+    .
