@@ -6,7 +6,6 @@ import {
   type GuildMember,
   type Message,
 } from "discord.js";
-import { logAutomaticAction } from "../modlogs/index.js";
 import { MASS_MENTION_THRESHOLD } from "./mass-mention-config.js";
 
 const MASS_MENTION_TIMEOUT_MS = 10 * 60 * 1000;
@@ -76,12 +75,6 @@ async function handleMassMention(message: Message) {
 
     await message.member.timeout(
       MASS_MENTION_TIMEOUT_MS,
-      "عمل منشن لعدد كبير من الأعضاء",
-    );
-    void logAutomaticAction(
-      message.guild,
-      message.member,
-      "مكافحة المنشنات",
       "عمل منشن لعدد كبير من الأعضاء",
     );
 
