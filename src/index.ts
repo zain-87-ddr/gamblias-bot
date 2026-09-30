@@ -12,6 +12,13 @@ import { registerAntiSpam } from "./automod/anti-spam.ts";
 import { registerBanSystem } from "./bans/index.ts";
 import { commands } from "./commands/index.ts";
 import { getBotConfig } from "./config.ts";
+import {
+  sendMessageDeleteLog,
+  sendMessageEditLog,
+  sendVoiceJoinLog,
+  sendVoiceLeaveLog,
+  sendVoiceMoveLog,
+} from "./logs/index.ts";
 import { registerRemovalSystem } from "./removals/index.ts";
 import { registerTimeoutSystem } from "./timeouts/index.ts";
 import { sendWelcomeMessage } from "./welcome.ts";
@@ -23,6 +30,7 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
   ],
 });
 
@@ -36,7 +44,115 @@ client.on(Events.GuildMemberAdd, async (member) => {
   try {
     await sendWelcomeMessage(member.guild, member);
   } catch (error) {
-    console.error(`Could not welcome ${member.user.tag} in ${member.guild.name}:`, error);
+    console.error(
+      `Could not welcome ${member.user.tag} in ${member.guild.name}:`,
+      error,
+    );
+  }
+});
+
+client.on(Events.MessageDelete, async (message) => {
+  try {
+    if (!message.guild) {
+      return;
+    }
+
+    if (message.author?.bot) {
+      return;
+    }
+
+    await sendMessageDeleteLog(
+      message.guild,
+      message,
+    );
+  } catch (error) {
+    console.error("Message delete log error:", error);
+  }
+});
+
+client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+  try {
+    if (!newMessage.guild) {
+      return;
+    }
+
+    if (newMessage.author?.bot) {
+      return;
+    }
+
+    if (oldMessage.content === newMessage.content) {
+      return;
+    }
+
+    await sendMessageEditLog(
+      newMessage.guild,
+      oldMessage,
+      newMessage,
+    );
+  } catch (error) {
+    console.error("Message edit log error:", error);
+  }
+});
+
+client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+  try {
+    if (!newState.guild) {
+      return;
+    }
+
+    if (newState.member?.user.bot) {
+      return;
+    }
+
+    const memberMention =
+      newState.member?.toString() ??
+      oldState.member?.toString();
+
+    const memberId =
+      newState.member?.id ??
+      oldState.member?.id;
+
+    if (!memberMention || !memberId) {
+      return;
+    }
+
+    if (!oldState.channelId && newState.channelId) {
+      await sendVoiceJoinLog(
+        newState.guild,
+        memberMention,
+        memberId,
+        newState.channel?.name ?? "Unknown",
+      );
+
+      return;
+    }
+
+    if (oldState.channelId && !newState.channelId) {
+      await sendVoiceLeaveLog(
+        newState.guild,
+        memberMention,
+        memberId,
+        oldState.channel?.name ?? "Unknown",
+      );
+
+      return;
+    }
+
+    if (
+      oldState.channelId &&
+      newState.channelId &&
+      oldState.channelId !== newState.channelId
+    ) {
+      await sendVoiceMoveLog(
+        newState.guild,
+        memberMention,
+        memberId,
+        oldState.channel?.name ?? "Unknown",
+        newState.channel?.name ?? "Unknown",
+      );
+    }
+  } catch (error) {
+    console.error("Voice log error:", error);
   }
 });
 
@@ -46,7 +162,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   const command = commands.find(
-    (registeredCommand) => registeredCommand.data.name === interaction.commandName,
+    (registeredCommand) =>
+      registeredCommand.data.name === interaction.commandName,
   );
 
   if (!command) {
@@ -56,7 +173,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     await command.execute(interaction);
   } catch (error) {
-    console.error(`Command failed: /${interaction.commandName}`, error);
+    console.error(
+      `Command failed: /${interaction.commandName}`,
+      error,
+    );
+
     await replyWithError(interaction);
   }
 });
@@ -71,20 +192,32 @@ registerAntiLink(client);
 registerAntiMassMention(client);
 registerAutoCleanupSystem(client);
 
-async function replyWithError(interaction: ChatInputCommandInteraction) {
-  const message = "Something went wrong while running that command.";
+async function replyWithError(
+  interaction: ChatInputCommandInteraction,
+) {
+  const message =
+    "Something went wrong while running that command.";
 
   if (interaction.replied || interaction.deferred) {
-    await interaction.followUp({ content: message, ephemeral: true });
+    await interaction.followUp({
+      content: message,
+      ephemeral: true,
+    });
+
     return;
   }
 
-  await interaction.reply({ content: message, ephemeral: true });
+  await interaction.reply({
+    content: message,
+    ephemeral: true,
+  });
 }
 
 async function shutdown(signal: string) {
   console.info(`Received ${signal}; shutting down.`);
+
   client.destroy();
+
   process.exit(0);
 }
 
@@ -92,4 +225,5 @@ process.once("SIGINT", () => void shutdown("SIGINT"));
 process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
 const { token } = getBotConfig();
+
 await client.login(token);
