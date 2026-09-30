@@ -1,4 +1,5 @@
 import {
+  EmbedBuilder,
   Events,
   PermissionFlagsBits,
   type Client,
@@ -8,6 +9,7 @@ import {
 const CLEAR_COMMAND = ".مسح";
 const DEFAULT_AMOUNT = 5;
 const MAX_AMOUNT = 200;
+const CONFIRMATION_DELETE_MS = 10_000;
 
 async function handleClear(message: Message) {
   if (!message.guild || message.author.bot) {
@@ -16,7 +18,6 @@ async function handleClear(message: Message) {
 
   const content = message.content.trim();
 
-  // لازم الأمر يبدأ بالنقطة
   if (
     content !== CLEAR_COMMAND &&
     !content.startsWith(`${CLEAR_COMMAND} `)
@@ -24,7 +25,6 @@ async function handleClear(message: Message) {
     return;
   }
 
-  // صلاحية العضو
   if (
     !message.member?.permissions.has(
       PermissionFlagsBits.ManageMessages,
@@ -33,7 +33,6 @@ async function handleClear(message: Message) {
     return;
   }
 
-  // صلاحية البوت
   const botMember =
     message.guild.members.me ??
     (await message.guild.members.fetchMe());
@@ -70,12 +69,17 @@ async function handleClear(message: Message) {
     return;
   }
 
-  // لو الأمر معمول Reply على رسالة شخص
+  let deleted = 0;
+  let targetUserId: string | undefined;
+  let targetUserMention: string | undefined;
+
+  // لو الأمر معمول Reply على شخص
   if (message.reference?.messageId) {
     const referencedMessage = await message.fetchReference();
-    const targetUserId = referencedMessage.author.id;
 
-    let deleted = 0;
+    targetUserId = referencedMessage.author.id;
+    targetUserMention = referencedMessage.author.toString();
+
     let lastMessageId: string | undefined;
 
     while (deleted < amount) {
@@ -96,10 +100,10 @@ async function handleClear(message: Message) {
 
       if (targetMessages.size > 0) {
         const remaining = amount - deleted;
-        const selected = [...targetMessages.values()].slice(
-          0,
-          remaining,
-        );
+
+        const selected = [
+          ...targetMessages.values(),
+        ].slice(0, remaining);
 
         if ("bulkDelete" in channel) {
           await channel.bulkDelete(selected, true);
@@ -114,39 +118,81 @@ async function handleClear(message: Message) {
         break;
       }
     }
+  } else {
+    // مسح عادي
+    let remaining = amount;
 
-    await message.delete().catch(() => {});
+    while (remaining > 0) {
+      const batchSize = Math.min(remaining, 100);
+
+      const messages = await channel.messages.fetch({
+        limit: batchSize + 1,
+      });
+
+      const messagesToDelete = messages.filter(
+        (msg) => msg.id !== message.id,
+      );
+
+      if (messagesToDelete.size === 0) {
+        break;
+      }
+
+      const selected = [
+        ...messagesToDelete.values(),
+      ].slice(0, batchSize);
+
+      if ("bulkDelete" in channel) {
+        await channel.bulkDelete(selected, true);
+      }
+
+      deleted += selected.length;
+      remaining = amount - deleted;
+
+      if (messages.size < batchSize) {
+        break;
+      }
+    }
+  }
+
+  // نمسح أمر .مسح نفسه
+  await message.delete().catch(() => {});
+
+  if (deleted === 0) {
     return;
   }
 
-  // مسح عادي بدون Reply
-  let remaining = amount;
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle("🧹 تم تنظيف المحادثة")
+    .addFields(
+      {
+        name: "🛡️ بواسطة",
+        value: message.author.toString(),
+        inline: true,
+      },
+      {
+        name: "🗑️ عدد الرسائل",
+        value: `\`${deleted}\``,
+        inline: true,
+      },
+    )
+    .setTimestamp();
 
-  while (remaining > 0) {
-    const batchSize = Math.min(remaining, 100);
-
-    const messages = await channel.messages.fetch({
-      limit: batchSize,
+  if (targetUserId && targetUserMention) {
+    embed.addFields({
+      name: "👤 العضو",
+      value: targetUserMention,
+      inline: true,
     });
-
-    const messagesToDelete = messages.filter(
-      (msg) => msg.id !== message.id,
-    );
-
-    if (messagesToDelete.size === 0) {
-      break;
-    }
-
-    if ("bulkDelete" in channel) {
-      await channel.bulkDelete(messagesToDelete, true);
-    }
-
-    remaining -= messagesToDelete.size;
-
-    if (messages.size < batchSize) {
-      break;
-    }
   }
+
+  const confirmation = await channel.send({
+    embeds: [embed],
+  });
+
+  setTimeout(() => {
+    void confirmation.delete().catch(() => {});
+  }, CONFIRMATION_DELETE_MS);
 }
 
 export function registerClearSystem(client: Client) {
