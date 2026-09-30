@@ -6,6 +6,7 @@ import {
   type Message,
 } from "discord.js";
 import { ALLOWED_LINK_DOMAINS } from "./allowed-domains.js";
+import { sendAutoModLog } from "../logs/index.ts";
 
 const LINK_PATTERN = /https?:\/\/[^\s<>()]+/gi;
 
@@ -14,10 +15,23 @@ function linkEmbed(message: Message) {
     .setColor(0xf59e0b)
     .setTitle("🔗 تم حذف الرسالة")
     .addFields(
-      { name: "👤 العضو", value: message.author.toString(), inline: true },
-      { name: "📝 السبب", value: "إرسال روابط غير مسموح بها", inline: false },
+      {
+        name: "👤 العضو",
+        value: message.author.toString(),
+        inline: true,
+      },
+      {
+        name: "📝 السبب",
+        value: "إرسال روابط غير مسموح بها",
+        inline: false,
+      },
     )
-    .setThumbnail(message.author.displayAvatarURL({ extension: "png", size: 256 }))
+    .setThumbnail(
+      message.author.displayAvatarURL({
+        extension: "png",
+        size: 256,
+      }),
+    )
     .setTimestamp();
 }
 
@@ -26,38 +40,64 @@ function normalizeHostname(hostname: string) {
 }
 
 function isAllowedDomain(hostname: string) {
-  const normalizedHostname = normalizeHostname(hostname);
+  const normalizedHostname =
+    normalizeHostname(hostname);
+
   return ALLOWED_LINK_DOMAINS.some((domain) => {
-    const normalizedDomain = normalizeHostname(domain);
+    const normalizedDomain =
+      normalizeHostname(domain);
+
     return (
       normalizedHostname === normalizedDomain ||
-      normalizedHostname.endsWith(`.${normalizedDomain}`)
+      normalizedHostname.endsWith(
+        `.${normalizedDomain}`,
+      )
     );
   });
 }
 
 function hasBlockedLink(content: string) {
-  return [...content.matchAll(LINK_PATTERN)].some((match) => {
-    const candidate = match[0].replace(/[.,!?;:]+$/, "");
+  return [...content.matchAll(LINK_PATTERN)].some(
+    (match) => {
+      const candidate = match[0].replace(
+        /[.,!?;:]+$/,
+        "",
+      );
 
-    try {
-      return !isAllowedDomain(new URL(candidate).hostname);
-    } catch {
-      return true;
-    }
-  });
+      try {
+        return !isAllowedDomain(
+          new URL(candidate).hostname,
+        );
+      } catch {
+        return true;
+      }
+    },
+  );
 }
 
 async function handleLink(message: Message) {
-  if (!message.guild || message.author.bot || !hasBlockedLink(message.content)) {
+  if (
+    !message.guild ||
+    message.author.bot ||
+    !hasBlockedLink(message.content)
+  ) {
     return;
   }
 
-  const botMember = message.guild.members.me ?? (await message.guild.members.fetchMe());
-  const guildChannel = message.guild.channels.cache.get(message.channel.id);
+  const botMember =
+    message.guild.members.me ??
+    (await message.guild.members.fetchMe());
+
+  const guildChannel =
+    message.guild.channels.cache.get(
+      message.channel.id,
+    );
+
   if (
     guildChannel &&
-    botMember.permissionsIn(guildChannel).has(PermissionFlagsBits.ManageMessages)
+    botMember
+      .permissionsIn(guildChannel)
+      .has(PermissionFlagsBits.ManageMessages)
   ) {
     try {
       await message.delete();
@@ -65,6 +105,16 @@ async function handleLink(message: Message) {
       // Continue with the warning if deletion is not permitted.
     }
   }
+
+  await sendAutoModLog(
+    message.guild,
+    message.author.toString(),
+    "Anti-Link",
+    "🗑️ حذف الرسالة",
+    "إرسال رابط غير مسموح به",
+    message.channel.toString(),
+  );
+
   if (!message.channel.isSendable()) {
     return;
   }
@@ -75,11 +125,17 @@ async function handleLink(message: Message) {
 }
 
 export function registerAntiLink(client: Client) {
-  client.on(Events.MessageCreate, async (message) => {
-    try {
-      await handleLink(message);
-    } catch (error) {
-      console.error("Anti-link system error:", error);
-    }
-  });
+  client.on(
+    Events.MessageCreate,
+    async (message) => {
+      try {
+        await handleLink(message);
+      } catch (error) {
+        console.error(
+          "Anti-link system error:",
+          error,
+        );
+      }
+    },
+  );
 }
