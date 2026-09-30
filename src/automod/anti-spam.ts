@@ -11,6 +11,7 @@ import {
   recordSpamMessage,
   type SpamMessageRecord,
 } from "./spam-store.js";
+import { sendAutoModLog } from "../logs/index.ts";
 
 const SPAM_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -22,13 +23,25 @@ function spamEmbed(member: GuildMember) {
       { name: "👤 العضو", value: member.toString(), inline: true },
       { name: "🛡️ الإجراء", value: "تايم أوت", inline: true },
       { name: "⏳ المدة", value: "10 دقائق", inline: true },
-      { name: "📝 السبب", value: "إرسال رسائل بشكل متكرر", inline: false },
+      {
+        name: "📝 السبب",
+        value: "إرسال رسائل بشكل متكرر",
+        inline: false,
+      },
     )
-    .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }))
+    .setThumbnail(
+      member.displayAvatarURL({
+        extension: "png",
+        size: 256,
+      }),
+    )
     .setTimestamp();
 }
 
-async function deleteSpamMessages(message: Message, records: SpamMessageRecord[]) {
+async function deleteSpamMessages(
+  message: Message,
+  records: SpamMessageRecord[],
+) {
   for (const record of records) {
     try {
       if (record.messageId === message.id) {
@@ -36,12 +49,18 @@ async function deleteSpamMessages(message: Message, records: SpamMessageRecord[]
         continue;
       }
 
-      const channel = await message.client.channels.fetch(record.channelId);
+      const channel = await message.client.channels.fetch(
+        record.channelId,
+      );
+
       if (!channel?.isTextBased() || !("messages" in channel)) {
         continue;
       }
 
-      const spamMessage = await channel.messages.fetch(record.messageId);
+      const spamMessage = await channel.messages.fetch(
+        record.messageId,
+      );
+
       await spamMessage.delete();
     } catch {
       // Deletion is best effort; timeout handling continues.
@@ -50,16 +69,29 @@ async function deleteSpamMessages(message: Message, records: SpamMessageRecord[]
 }
 
 async function handleSpam(message: Message) {
-  if (!message.guild || !message.member || message.author.bot) {
+  if (
+    !message.guild ||
+    !message.member ||
+    message.author.bot
+  ) {
     return;
   }
 
-  const botMember = message.guild.members.me ?? (await message.guild.members.fetchMe());
+  const botMember =
+    message.guild.members.me ??
+    (await message.guild.members.fetchMe());
+
   if (
     message.member.id === message.guild.ownerId ||
-    message.member.permissions.has(PermissionFlagsBits.ModerateMembers) ||
-    !botMember.permissions.has(PermissionFlagsBits.ModerateMembers) ||
-    botMember.roles.highest.comparePositionTo(message.member.roles.highest) <= 0
+    message.member.permissions.has(
+      PermissionFlagsBits.ModerateMembers,
+    ) ||
+    !botMember.permissions.has(
+      PermissionFlagsBits.ModerateMembers,
+    ) ||
+    botMember.roles.highest.comparePositionTo(
+      message.member.roles.highest,
+    ) <= 0
   ) {
     return;
   }
@@ -73,19 +105,41 @@ async function handleSpam(message: Message) {
       sentAt: Date.now(),
     },
   );
+
   if (!detection.triggered) {
     return;
   }
 
-  const guildChannel = message.guild.channels.cache.get(message.channel.id);
+  const guildChannel =
+    message.guild.channels.cache.get(
+      message.channel.id,
+    );
+
   if (
     guildChannel &&
-    botMember.permissionsIn(guildChannel).has(PermissionFlagsBits.ManageMessages)
+    botMember
+      .permissionsIn(guildChannel)
+      .has(PermissionFlagsBits.ManageMessages)
   ) {
-    await deleteSpamMessages(message, detection.messages);
+    await deleteSpamMessages(
+      message,
+      detection.messages,
+    );
   }
 
-  await message.member.timeout(SPAM_TIMEOUT_MS, "إرسال رسائل بشكل متكرر");
+  await message.member.timeout(
+    SPAM_TIMEOUT_MS,
+    "إرسال رسائل بشكل متكرر",
+  );
+
+  await sendAutoModLog(
+    message.guild,
+    message.member.toString(),
+    "Anti-Spam",
+    "⏱️ تايم أوت",
+    "إرسال رسائل بشكل متكرر — المدة: 10 دقائق",
+    message.channel.toString(),
+  );
 
   if (!message.channel.isSendable()) {
     return;
@@ -98,14 +152,23 @@ async function handleSpam(message: Message) {
 
 export function registerAntiSpam(client: Client) {
   void initializeSpamStore().catch((error) => {
-    console.error("Could not initialize spam store:", error);
+    console.error(
+      "Could not initialize spam store:",
+      error,
+    );
   });
 
-  client.on(Events.MessageCreate, async (message) => {
-    try {
-      await handleSpam(message);
-    } catch (error) {
-      console.error("Anti-spam system error:", error);
-    }
-  });
+  client.on(
+    Events.MessageCreate,
+    async (message) => {
+      try {
+        await handleSpam(message);
+      } catch (error) {
+        console.error(
+          "Anti-spam system error:",
+          error,
+        );
+      }
+    },
+  );
 }
