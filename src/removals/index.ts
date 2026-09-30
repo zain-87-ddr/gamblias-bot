@@ -6,8 +6,8 @@ import {
   type GuildMember,
   type Message,
 } from "discord.js";
-import { sendTemporaryReply } from "../cleanup/index.js";
-import { removeWarning } from "../warnings/store.js";
+import { sendTemporaryReply } from "../cleanup/index.ts";
+import { removeWarning } from "../warnings/store.ts";
 
 const UNWARN_COMMAND = "انورن";
 const UNTIMEOUT_COMMAND = "انتايم";
@@ -57,24 +57,13 @@ function noWarningsEmbed(member: GuildMember) {
     .setTimestamp();
 }
 
-  function untimeoutEmbed(member: GuildMember, moderator: GuildMember) {
-    return new EmbedBuilder()
-      .setColor(0x22c55e)
-      .setTitle("🔓 تم إزالة التايم أوت")
-      .addFields(
-        { name: "👤 العضو", value: member.toString(), inline: true },
-        { name: "🛡️ بواسطة", value: moderator.toString(), inline: true },
-      )
-      .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }))
-      .setTimestamp();
-  }
+function untimeoutEmbed(member: GuildMember, moderator: GuildMember) {
   return new EmbedBuilder()
     .setColor(0x22c55e)
     .setTitle("🔓 تم إزالة التايم أوت")
     .addFields(
       { name: "👤 العضو", value: member.toString(), inline: true },
       { name: "🛡️ بواسطة", value: moderator.toString(), inline: true },
-      { name: "📝 السبب", value: reason.slice(0, 1024), inline: false },
     )
     .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }))
     .setTimestamp();
@@ -89,7 +78,10 @@ function noTimeoutEmbed(member: GuildMember) {
     .setTimestamp();
 }
 
-async function resolveTarget(message: Message, input: string): Promise<RemovalTarget> {
+async function resolveTarget(
+  message: Message,
+  input: string,
+): Promise<RemovalTarget> {
   const guild = message.guild;
   if (!guild) {
     return { target: null, reason: input };
@@ -116,7 +108,10 @@ async function resolveTarget(message: Message, input: string): Promise<RemovalTa
         reason: input,
       };
     } catch {
-      await reply(message, "لم يتم العثور على العضو صاحب الرسالة التي تم الرد عليها.");
+      await reply(
+        message,
+        "لم يتم العثور على العضو صاحب الرسالة التي تم الرد عليها.",
+      );
       return { target: null, reason: "" };
     }
   }
@@ -145,6 +140,7 @@ async function resolveAndValidateTarget(
   action: "unwarn" | "untimeout",
 ) {
   const { target, reason } = await resolveTarget(message, input);
+
   if (!target) {
     await reply(message, "يرجى الرد على رسالة العضو أو ذكره بعد الأمر.");
     return null;
@@ -160,12 +156,17 @@ async function resolveAndValidateTarget(
     return null;
   }
 
-  const botMember = message.guild!.members.me ?? (await message.guild!.members.fetchMe());
+  const botMember =
+    message.guild!.members.me ?? (await message.guild!.members.fetchMe());
+
   if (
     target.id === message.client.user?.id ||
     !canBotManage(botMember, target)
   ) {
-    await reply(message, "لا يستطيع البوت تنفيذ الإجراء على هذا العضو بسبب الصلاحيات.");
+    await reply(
+      message,
+      "لا يستطيع البوت تنفيذ الإجراء على هذا العضو بسبب الصلاحيات.",
+    );
     return null;
   }
 
@@ -178,37 +179,56 @@ async function handleUnwarn(message: Message) {
   }
 
   const content = message.content.trim();
+
   if (!isCommand(content, UNWARN_COMMAND)) {
     return;
   }
 
   if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-    await reply(message, "ليس لديك الصلاحية اللازمة لاستخدام أمر إزالة التحذير.");
+    await reply(
+      message,
+      "ليس لديك الصلاحية اللازمة لاستخدام أمر إزالة التحذير.",
+    );
     return;
   }
 
   const input = content.slice(UNWARN_COMMAND.length).trim();
-  const resolved = await resolveAndValidateTarget(message, input, "unwarn");
+  const resolved = await resolveAndValidateTarget(
+    message,
+    input,
+    "unwarn",
+  );
+
   if (!resolved) {
     return;
   }
 
   const reason = resolved.reason || "تم إزالة تحذير.";
   const channel = message.channel;
+
   if (!channel.isSendable()) {
-    await reply(message, "لا يمكن إرسال رسالة إزالة التحذير في هذه القناة.");
+    await reply(
+      message,
+      "لا يمكن إرسال رسالة إزالة التحذير في هذه القناة.",
+    );
     return;
   }
 
-  const count = await removeWarning(message.guild.id, resolved.target.id);
-  if (count > 0) {
-  
-  }
+  const count = await removeWarning(
+    message.guild.id,
+    resolved.target.id,
+  );
+
   await channel.send({
     embeds: [
       count === 0
         ? noWarningsEmbed(resolved.target)
-        : unwarnEmbed(resolved.target, message.member, reason, count),
+        : unwarnEmbed(
+            resolved.target,
+            message.member,
+            reason,
+            count,
+          ),
     ],
   });
 }
@@ -219,30 +239,44 @@ async function handleUntimeout(message: Message) {
   }
 
   const content = message.content.trim();
+
   if (!isCommand(content, UNTIMEOUT_COMMAND)) {
     return;
   }
 
   if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-    await reply(message, "ليس لديك الصلاحية اللازمة لاستخدام أمر إزالة التايم.");
+    await reply(
+      message,
+      "ليس لديك الصلاحية اللازمة لاستخدام أمر إزالة التايم.",
+    );
     return;
   }
 
   const input = content.slice(UNTIMEOUT_COMMAND.length).trim();
-  const resolved = await resolveAndValidateTarget(message, input, "untimeout");
+  const resolved = await resolveAndValidateTarget(
+    message,
+    input,
+    "untimeout",
+  );
+
   if (!resolved) {
     return;
   }
 
   const channel = message.channel;
+
   if (!channel.isSendable()) {
-    await reply(message, "لا يمكن إرسال رسالة إزالة التايم في هذه القناة.");
+    await reply(
+      message,
+      "لا يمكن إرسال رسالة إزالة التايم في هذه القناة.",
+    );
     return;
   }
 
   const isTimedOut =
     resolved.target.communicationDisabledUntilTimestamp !== null &&
     resolved.target.communicationDisabledUntilTimestamp > Date.now();
+
   if (!isTimedOut) {
     await channel.send({
       embeds: [noTimeoutEmbed(resolved.target)],
@@ -250,7 +284,16 @@ async function handleUntimeout(message: Message) {
     return;
   }
 
-   await resolved.target.timeout(null, "إزالة التايم أوت");
+  await resolved.target.timeout(null, "إزالة التايم أوت");
+
+  await channel.send({
+    embeds: [
+      untimeoutEmbed(
+        resolved.target,
+        message.member,
+      ),
+    ],
+  });
 }
 
 export function registerRemovalSystem(client: Client) {
@@ -260,10 +303,23 @@ export function registerRemovalSystem(client: Client) {
       await handleUntimeout(message);
     } catch (error) {
       console.error("Removal system error:", error);
-      if (message.guild && message.content.trim().startsWith(UNWARN_COMMAND)) {
-        await reply(message, "حدث خطأ أثناء تنفيذ إزالة التحذير. يرجى المحاولة مرة أخرى.");
-      } else if (message.guild && message.content.trim().startsWith(UNTIMEOUT_COMMAND)) {
-        await reply(message, "حدث خطأ أثناء تنفيذ إزالة التايم. يرجى المحاولة مرة أخرى.");
+
+      if (
+        message.guild &&
+        message.content.trim().startsWith(UNWARN_COMMAND)
+      ) {
+        await reply(
+          message,
+          "حدث خطأ أثناء تنفيذ إزالة التحذير. يرجى المحاولة مرة أخرى.",
+        );
+      } else if (
+        message.guild &&
+        message.content.trim().startsWith(UNTIMEOUT_COMMAND)
+      ) {
+        await reply(
+          message,
+          "حدث خطأ أثناء تنفيذ إزالة التايم. يرجى المحاولة مرة أخرى.",
+        );
       }
     }
   });
