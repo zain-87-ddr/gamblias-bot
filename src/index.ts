@@ -66,6 +66,7 @@ registerTimeoutSystem(client);
 registerRemovalSystem(client);
 registerBanSystem(client);
 registerAntiSpam(client);
+registerClearSystem(client);
 registerAntiLink(client);
 registerAntiMassMention(client);
 registerAutoCleanupSystem(client);
