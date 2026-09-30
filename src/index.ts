@@ -3,18 +3,18 @@ import {
   Events,
   GatewayIntentBits,
   type ChatInputCommandInteraction,
-} from "discord.js";
-import { registerAutoCleanupSystem } from "./cleanup/index.js";
-import { registerAntiLink } from "./automod/anti-link.js";
-import { registerAntiMassMention } from "./automod/anti-mass-mention.js";
-import { registerAntiSpam } from "./automod/anti-spam.js";
-import { registerBanSystem } from "./bans/index.js";
-import { commands } from "./commands/index.js";
-import { getBotConfig } from "./config.js";
+} from "discord.ts";
+import { registerAutoCleanupSystem } from "./cleanup/index.ts";
+import { registerAntiLink } from "./automod/anti-link.ts";
+import { registerAntiMassMention } from "./automod/anti-mass-mention.ts";
+import { registerAntiSpam } from "./automod/anti-spam.ts";
+import { registerBanSystem } from "./bans/index.ts";
+import { commands } from "./commands/index.ts";
+import { getBotConfig } from "./config.ts";
 import { registerRemovalSystem } from "./removals/index.ts";
-import { registerTimeoutSystem } from "./timeouts/index.js";
-import { sendWelcomeMessage } from "./welcome.js";
-import { registerWarningSystem } from "./warnings/index.js";
+import { registerTimeoutSystem } from "./timeouts/index.ts";
+import { sendWelcomeMessage } from "./welcome.ts";
+import { registerWarningSystem } from "./warnings/index.ts";
 
 const client = new Client({
   intents: [
