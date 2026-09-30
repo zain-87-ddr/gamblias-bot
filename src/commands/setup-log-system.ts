@@ -3,18 +3,18 @@ ChannelType,
 PermissionFlagsBits,
 SlashCommandBuilder,
 type ChatInputCommandInteraction,
-} from “discord.js”;
-import type { BotCommand } from “../types/command.ts”;
+} from "discord.js";
+import type { BotCommand } from "../types/command.ts";
 
 export const setupLogSystemCommand: BotCommand = {
 data: new SlashCommandBuilder()
-.setName(“setup-log-system”)
-.setDescription(“Create the Gamblias log system”),
+.setName("setup-log-system")
+.setDescription("Create the Gamblias log system"),
 
 async execute(interaction: ChatInputCommandInteraction) {
 if (!interaction.guild || !interaction.member) {
 await interaction.reply({
-content: “هذا الأمر يعمل داخل السيرفر فقط.”,
+content: "هذا الأمر يعمل داخل السيرفر فقط.",
 ephemeral: true,
 });
 return;
