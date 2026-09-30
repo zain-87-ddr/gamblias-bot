@@ -8,6 +8,10 @@ import {
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.ts";
 import {
+  sendMaxWarningLog,
+  sendWarnLog,
+} from "../logs/index.ts";
+import {
   addWarning,
   initializeWarningStore,
   resetWarnings,
@@ -255,6 +259,14 @@ async function handleWarning(message: Message) {
       "الوصول إلى ثلاثة تحذيرات",
     );
 
+    await sendMaxWarningLog(
+      message.guild,
+      target.user.username,
+      target.toString(),
+      target.id,
+      moderator.toString(),
+    );
+
     await resetWarnings(
       message.guild.id,
       target.id,
@@ -272,6 +284,16 @@ async function handleWarning(message: Message) {
 
     return;
   }
+
+  await sendWarnLog(
+    message.guild,
+    target.user.username,
+    target.toString(),
+    target.id,
+    moderator.toString(),
+    reason,
+    count,
+  );
 
   await channel.send({
     content: target.toString(),
