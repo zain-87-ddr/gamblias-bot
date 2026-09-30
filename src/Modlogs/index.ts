@@ -180,3 +180,4 @@ export function registerModLogsSystem(client: Client) {
     void logMemberLeave(member);
   });
 }
+// Mod logs system
