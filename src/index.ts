@@ -11,7 +11,7 @@ import { registerAntiSpam } from "./automod/anti-spam.js";
 import { registerBanSystem } from "./bans/index.js";
 import { commands } from "./commands/index.js";
 import { getBotConfig } from "./config.js";
-import { registerRemovalSystem } from "./removals/index.js";
+import { registerRemovalSystem } from "./removals/index.ts";
 import { registerTimeoutSystem } from "./timeouts/index.js";
 import { sendWelcomeMessage } from "./welcome.js";
 import { registerWarningSystem } from "./warnings/index.js";
