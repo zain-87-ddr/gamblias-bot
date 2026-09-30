@@ -73,7 +73,10 @@ async function handleClear(message: Message) {
   let targetUserId: string | undefined;
   let targetUserMention: string | undefined;
 
-  // لو الأمر معمول Reply على شخص
+  // نمسح أمر .مسح نفسه الأول
+  await message.delete().catch(() => {});
+
+  // لو الأمر كان Reply على شخص
   if (message.reference?.messageId) {
     const referencedMessage = await message.fetchReference();
 
@@ -93,9 +96,7 @@ async function handleClear(message: Message) {
       }
 
       const targetMessages = messages.filter(
-        (msg) =>
-          msg.author.id === targetUserId &&
-          msg.id !== message.id,
+        (msg) => msg.author.id === targetUserId,
       );
 
       if (targetMessages.size > 0) {
@@ -103,13 +104,14 @@ async function handleClear(message: Message) {
 
         const selected = [
           ...targetMessages.values(),
-        ].slice(0, remaining);
+        ].slice(0, Math.min(remaining, 100));
 
-        if ("bulkDelete" in channel) {
-          await channel.bulkDelete(selected, true);
-        }
+        const result = await channel.bulkDelete(
+          selected,
+          true,
+        );
 
-        deleted += selected.length;
+        deleted += result.size;
       }
 
       lastMessageId = messages.last()?.id;
@@ -120,42 +122,35 @@ async function handleClear(message: Message) {
     }
   } else {
     // مسح عادي
-    let remaining = amount;
-
-    while (remaining > 0) {
+    while (deleted < amount) {
+      const remaining = amount - deleted;
       const batchSize = Math.min(remaining, 100);
 
       const messages = await channel.messages.fetch({
-        limit: batchSize + 1,
+        limit: batchSize,
       });
 
-      const messagesToDelete = messages.filter(
-        (msg) => msg.id !== message.id,
-      );
-
-      if (messagesToDelete.size === 0) {
+      if (messages.size === 0) {
         break;
       }
 
-      const selected = [
-        ...messagesToDelete.values(),
-      ].slice(0, batchSize);
+      const result = await channel.bulkDelete(
+        messages,
+        true,
+      );
 
-      if ("bulkDelete" in channel) {
-        await channel.bulkDelete(selected, true);
-      }
-
-      deleted += selected.length;
-      remaining = amount - deleted;
+      deleted += result.size;
 
       if (messages.size < batchSize) {
         break;
       }
+
+      // لو كل الرسائل القديمة غير قابلة للمسح
+      if (result.size === 0) {
+        break;
+      }
     }
   }
-
-  // نمسح أمر .مسح نفسه
-  await message.delete().catch(() => {});
 
   if (deleted === 0) {
     return;
