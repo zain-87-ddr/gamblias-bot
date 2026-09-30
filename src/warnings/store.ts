@@ -47,22 +47,28 @@ async function loadStore(): Promise<WarningStore> {
       }
 
       const guildWarnings: Record<string, StoredWarning[]> = {};
+
       for (const [memberId, rawWarnings] of Object.entries(rawGuildWarnings)) {
         if (typeof rawWarnings === "number") {
           if (!Number.isInteger(rawWarnings) || rawWarnings < 0) {
-            throw new Error(`Warning store contains an invalid count for ${guildId}/${memberId}`);
+            throw new Error(
+              `Warning store contains an invalid count for ${guildId}/${memberId}`,
+            );
           }
 
           guildWarnings[memberId] = Array.from(
             { length: rawWarnings },
             () => ({ issuedAt: now }),
           );
+
           storeNeedsPersistence = true;
           continue;
         }
 
         if (!Array.isArray(rawWarnings)) {
-          throw new Error(`Warning store contains invalid warnings for ${guildId}/${memberId}`);
+          throw new Error(
+            `Warning store contains invalid warnings for ${guildId}/${memberId}`,
+          );
         }
 
         guildWarnings[memberId] = rawWarnings.map((rawWarning) => {
@@ -72,7 +78,9 @@ async function loadStore(): Promise<WarningStore> {
             !Number.isFinite(rawWarning.issuedAt) ||
             rawWarning.issuedAt < 0
           ) {
-            throw new Error(`Warning store contains an invalid warning for ${guildId}/${memberId}`);
+            throw new Error(
+              `Warning store contains an invalid warning for ${guildId}/${memberId}`,
+            );
           }
 
           return { issuedAt: rawWarning.issuedAt };
@@ -97,13 +105,17 @@ async function getStore() {
   return storePromise;
 }
 
-function removeExpiredWarnings(store: WarningStore, now: number) {
+function removeExpiredWarnings(
+  store: WarningStore,
+  now: number,
+) {
   let changed = false;
 
   for (const [guildId, guildWarnings] of Object.entries(store)) {
     for (const [memberId, warnings] of Object.entries(guildWarnings)) {
       const activeWarnings = warnings.filter(
-        (warning) => warning.issuedAt + WARNING_DURATION_MS > now,
+        (warning) =>
+          warning.issuedAt + WARNING_DURATION_MS > now,
       );
 
       if (activeWarnings.length === warnings.length) {
@@ -111,6 +123,7 @@ function removeExpiredWarnings(store: WarningStore, now: number) {
       }
 
       changed = true;
+
       if (activeWarnings.length === 0) {
         delete guildWarnings[memberId];
       } else {
@@ -133,6 +146,7 @@ function scheduleNextExpiration(store: WarningStore) {
   }
 
   let nextExpiration = Number.POSITIVE_INFINITY;
+
   for (const guildWarnings of Object.values(store)) {
     for (const warnings of Object.values(guildWarnings)) {
       for (const warning of warnings) {
@@ -150,22 +164,40 @@ function scheduleNextExpiration(store: WarningStore) {
 
   expirationTimer = setTimeout(() => {
     expirationTimer = undefined;
+
     void expireWarnings().catch((error) => {
-      console.error("Warning expiration failed:", error);
+      console.error(
+        "Warning expiration failed:",
+        error,
+      );
     });
   }, Math.max(0, nextExpiration - Date.now()));
+
   expirationTimer.unref();
 }
 
 async function persistStore(store: WarningStore) {
   await mkdir(dirname(dataPath), { recursive: true });
+
   const temporaryPath = `${dataPath}.${process.pid}.tmp`;
-  await writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
-  await rename(temporaryPath, dataPath);
+
+  await writeFile(
+    temporaryPath,
+    `${JSON.stringify(store, null, 2)}\n`,
+    "utf8",
+  );
+
+  await rename(
+    temporaryPath,
+    dataPath,
+  );
 }
 
 function updateStore<T>(
-  updater: (store: WarningStore, now: number) => StoreUpdate<T>,
+  updater: (
+    store: WarningStore,
+    now: number,
+  ) => StoreUpdate<T>,
 ) {
   const operation = operationQueue.then(async () => {
     const store = await getStore();
@@ -177,6 +209,7 @@ function updateStore<T>(
     }
 
     scheduleNextExpiration(store);
+
     return update.result;
   });
 
@@ -191,17 +224,32 @@ function updateStore<T>(
 export async function initializeWarningStore() {
   await updateStore((store, now) => ({
     result: undefined,
-    changed: removeExpiredWarnings(store, now),
+    changed: removeExpiredWarnings(
+      store,
+      now,
+    ),
   }));
 }
 
-export function addWarning(guildId: string, memberId: string) {
+export function addWarning(
+  guildId: string,
+  memberId: string,
+) {
   return updateStore((store, now) => {
-    removeExpiredWarnings(store, now);
+    removeExpiredWarnings(
+      store,
+      now,
+    );
 
-    const guildWarnings = (store[guildId] ??= {});
-    const warnings = (guildWarnings[memberId] ??= []);
-    warnings.push({ issuedAt: now });
+    const guildWarnings =
+      (store[guildId] ??= {});
+
+    const warnings =
+      (guildWarnings[memberId] ??= []);
+
+    warnings.push({
+      issuedAt: now,
+    });
 
     return {
       result: warnings.length,
@@ -210,49 +258,90 @@ export function addWarning(guildId: string, memberId: string) {
   });
 }
 
-export function removeWarning(guildId: string, memberId: string) {
+export function removeWarning(
+  guildId: string,
+  memberId: string,
+) {
   return updateStore((store, now) => {
-    const changed = removeExpiredWarnings(store, now);
-    const guildWarnings = store[guildId];
-    const warnings = guildWarnings?.[memberId];
+    const changed = removeExpiredWarnings(
+      store,
+      now,
+    );
+
+    const guildWarnings =
+      store[guildId];
+
+    const warnings =
+      guildWarnings?.[memberId];
 
     if (!warnings?.length) {
-      return { result: 0, changed };
+      return {
+        result: 0,
+        changed,
+      };
     }
 
     warnings.shift();
+
     if (warnings.length === 0) {
       delete guildWarnings[memberId];
     }
-    if (guildWarnings && Object.keys(guildWarnings).length === 0) {
+
+    if (
+      guildWarnings &&
+      Object.keys(guildWarnings).length === 0
+    ) {
       delete store[guildId];
     }
 
-    return { result: warnings.length, changed: true };
+    return {
+      result: warnings.length,
+      changed: true,
+    };
   });
 }
 
-export function resetWarnings(guildId: string, memberId: string) {
+export function resetWarnings(
+  guildId: string,
+  memberId: string,
+) {
   return updateStore((store, now) => {
-    const changed = removeExpiredWarnings(store, now);
-    const guildWarnings = store[guildId];
+    const changed = removeExpiredWarnings(
+      store,
+      now,
+    );
+
+    const guildWarnings =
+      store[guildId];
 
     if (!guildWarnings?.[memberId]) {
-      return { result: undefined, changed };
+      return {
+        result: undefined,
+        changed,
+      };
     }
 
     delete guildWarnings[memberId];
-    if (Object.keys(guildWarnings).length === 0) {
+
+    if (
+      Object.keys(guildWarnings).length === 0
+    ) {
       delete store[guildId];
     }
 
-    return { result: undefined, changed: true };
+    return {
+      result: undefined,
+      changed: true,
+    };
   });
 }
 
 export function expireWarnings() {
   return updateStore((store, now) => ({
     result: undefined,
-    changed: removeExpiredWarnings(store, now),
+    changed: removeExpiredWarnings(
+      store,
+      now,
+    ),
   }));
 }
