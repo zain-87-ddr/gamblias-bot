@@ -2,6 +2,7 @@ import {
   Client,
   Events,
   GatewayIntentBits,
+  PermissionFlagsBits,
   type ChatInputCommandInteraction,
 } from "discord.js";
 
@@ -29,7 +30,11 @@ import { registerTimeoutSystem } from "./timeouts/index.ts";
 import { sendWelcomeMessage } from "./welcome.ts";
 import { registerWarningSystem } from "./warnings/index.ts";
 
-import { giveAutoRole } from "./autorole/autorole.ts";
+import {
+  giveAutoRole,
+  giveAutoRoleToExistingMembers,
+  setAutoRole,
+} from "./autorole/autorole.ts";
 
 import {
   handleTicketButton,
@@ -292,7 +297,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (
         !interaction.memberPermissions?.has(
-          "Administrator",
+          PermissionFlagsBits.Administrator,
         )
       ) {
         await interaction.reply({
@@ -348,14 +353,44 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      const { setAutoRole } = await import(
-        "./autorole/autorole.ts"
-      );
-
+      /*
+       * حفظ الـAuto Role
+       */
       setAutoRole(interaction.guild, role);
 
+      /*
+       * إعطاء الرول لكل الأعضاء الموجودين حاليًا
+       */
       await interaction.update({
-        content: `✅ تم تحديد ${role} كـ **Auto Role**.\n\nأي عضو جديد يدخل السيرفر هيتم إعطاؤه الرول تلقائيًا.`,
+        content:
+          `⏳ جاري إعطاء ${role} كـ **Auto Role** للأعضاء الموجودين حاليًا...\n\n` +
+          "ممكن العملية تاخد شوية وقت لو السيرفر فيه أعضاء كتير.",
+        components: [],
+      });
+
+      const result = await giveAutoRoleToExistingMembers(
+        interaction.guild,
+        role,
+      );
+
+      if (!result) {
+        await interaction.editReply({
+          content:
+            `❌ حصل خطأ أثناء إعطاء ${role} للأعضاء الموجودين.\n\n` +
+            "الـAuto Role اتحدد، والأعضاء الجدد هياخدوه تلقائيًا.",
+          components: [],
+        });
+
+        return;
+      }
+
+      await interaction.editReply({
+        content:
+          `✅ تم تحديد ${role} كـ **Auto Role**.\n\n` +
+          `👥 تم إعطاء الرول لـ **${result.addedCount}** عضو موجود حاليًا.\n` +
+          `⏭️ تم تخطي **${result.skippedCount}** عضو لأن الرول موجودة عندهم بالفعل أو لا يمكن إعطاؤها.\n` +
+          `❌ فشل إعطاء الرول لـ **${result.failedCount}** عضو.\n\n` +
+          "👤 أي عضو جديد يدخل السيرفر هياخد الرول تلقائيًا.",
         components: [],
       });
 
