@@ -3,8 +3,8 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 
-import type { BotCommand } from "../types/command.ts";
-import { sendTicketPanel } from "../tickets/ticket.ts";
+import type { BotCommand } from "../types/command.js";
+import { sendTicketPanel } from "../tickets/ticket.js";
 
 export const setupTicketsCommand: BotCommand = {
   data: new SlashCommandBuilder()
