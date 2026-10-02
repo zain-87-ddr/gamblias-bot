@@ -4,7 +4,7 @@ import {
 } from "discord.js";
 
 import type { BotCommand } from "../types/command.js";
-import { sendTicketPanel } from "../tickets/ticket.ts";
+import { sendTicketPanel } from "../tickets/index.ts";
 
 export const setupTicketsCommand: BotCommand = {
   data: new SlashCommandBuilder()
@@ -32,7 +32,7 @@ export const setupTicketsCommand: BotCommand = {
     }
 
     try {
-      await sendTicketPanel(interaction.channel);
+      await sendTicketPanel(interaction.channel as any);
 
       await interaction.reply({
         content: "✅ تم إرسال Ticket System بنجاح.",
