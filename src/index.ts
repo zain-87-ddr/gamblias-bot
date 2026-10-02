@@ -4,6 +4,7 @@ import {
   GatewayIntentBits,
   type ChatInputCommandInteraction,
 } from "discord.js";
+
 import { registerClearSystem } from "./clear/index.ts";
 import { registerAutoCleanupSystem } from "./cleanup/index.ts";
 import { registerAntiLink } from "./automod/anti-link.ts";
@@ -12,6 +13,7 @@ import { registerAntiSpam } from "./automod/anti-spam.ts";
 import { registerBanSystem } from "./bans/index.ts";
 import { commands } from "./commands/index.ts";
 import { getBotConfig } from "./config.ts";
+
 import {
   sendMemberJoinLog,
   sendMemberLeaveLog,
@@ -21,10 +23,16 @@ import {
   sendVoiceLeaveLog,
   sendVoiceMoveLog,
 } from "./logs/index.ts";
+
 import { registerRemovalSystem } from "./removals/index.ts";
 import { registerTimeoutSystem } from "./timeouts/index.ts";
 import { sendWelcomeMessage } from "./welcome.ts";
 import { registerWarningSystem } from "./warnings/index.ts";
+
+import {
+  handleTicketButton,
+  handleTicketSelectMenu,
+} from "./tickets/ticketInteractions.ts";
 
 const client = new Client({
   intents: [
@@ -184,6 +192,90 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  /*
+   * =========================
+   * Ticket Buttons
+   * =========================
+   */
+
+  if (interaction.isButton()) {
+    const ticketButtons = [
+      "ticket_select_type",
+      "ticket_claim",
+      "ticket_add_member",
+      "ticket_close",
+      "ticket_close_confirm",
+      "ticket_close_cancel",
+    ];
+
+    if (ticketButtons.includes(interaction.customId)) {
+      try {
+        await handleTicketButton(interaction);
+      } catch (error) {
+        console.error("Ticket button error:", error);
+
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: "❌ حصل خطأ أثناء تنفيذ العملية.",
+            ephemeral: true,
+          });
+        }
+      }
+
+      return;
+    }
+  }
+
+  /*
+   * =========================
+   * Ticket Select Menus
+   * =========================
+   */
+
+  if (interaction.isStringSelectMenu()) {
+    if (interaction.customId === "ticket_type_menu") {
+      try {
+        await handleTicketSelectMenu(interaction);
+      } catch (error) {
+        console.error("Ticket type menu error:", error);
+
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: "❌ حصل خطأ أثناء إنشاء التكت.",
+            ephemeral: true,
+          });
+        }
+      }
+
+      return;
+    }
+  }
+
+  if (interaction.isUserSelectMenu()) {
+    if (interaction.customId === "ticket_add_member_menu") {
+      try {
+        await handleTicketSelectMenu(interaction);
+      } catch (error) {
+        console.error("Ticket add member menu error:", error);
+
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: "❌ حصل خطأ أثناء إضافة العضو.",
+            ephemeral: true,
+          });
+        }
+      }
+
+      return;
+    }
+  }
+
+  /*
+   * =========================
+   * Slash Commands
+   * =========================
+   */
+
   if (!interaction.isChatInputCommand()) {
     return;
   }
