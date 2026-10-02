@@ -8,6 +8,7 @@ import {
 } from "discord.js";
 
 const ROLE_COMMAND = ".رول";
+const UNROLE_COMMAND = ".انرول";
 
 function findRole(message: Message, roleInput: string): Role | null {
   if (!message.guild) {
@@ -16,14 +17,14 @@ function findRole(message: Message, roleInput: string): Role | null {
 
   const input = roleInput.trim();
 
-  // لو ID
+  // Role ID
   const roleById = message.guild.roles.cache.get(input);
 
   if (roleById) {
     return roleById;
   }
 
-  // لو Mention للرول
+  // Role Mention
   const roleMentionMatch = input.match(/^<@&(\d+)>$/);
 
   if (roleMentionMatch) {
@@ -36,36 +37,38 @@ function findRole(message: Message, roleInput: string): Role | null {
     }
   }
 
-  // لو اسم الرول
+  // Role Name
   const roleByName = message.guild.roles.cache.find(
-    (role) => role.name.toLowerCase() === input.toLowerCase(),
+    (role) =>
+      role.name.toLowerCase() === input.toLowerCase(),
   );
 
   return roleByName ?? null;
 }
 
-function getTargetMember(message: Message): GuildMember | null {
+function getTargetMember(
+  message: Message,
+): GuildMember | null {
   if (!message.guild) {
     return null;
   }
 
-  // أولًا: لو الأمر فيه منشن لعضو
+  // بالمنشن
   const mentionedMember = message.mentions.members?.first();
 
   if (mentionedMember) {
     return mentionedMember;
   }
 
-  // ثانيًا: لو الأمر Reply
+  // بالـReply
   if (message.reference?.messageId) {
-    const repliedMember = message.mentions.repliedUser
-      ? message.guild.members.cache.get(
-          message.mentions.repliedUser.id,
-        )
-      : null;
+    const repliedUser = message.mentions.repliedUser;
 
-    if (repliedMember) {
-      return repliedMember;
+    if (repliedUser) {
+      return (
+        message.guild.members.cache.get(repliedUser.id) ??
+        null
+      );
     }
   }
 
@@ -75,19 +78,20 @@ function getTargetMember(message: Message): GuildMember | null {
 function getRoleInput(
   message: Message,
   targetMember: GuildMember,
+  command: string,
 ): string | null {
   let content = message.content
-    .replace(ROLE_COMMAND, "")
+    .slice(command.length)
     .trim();
 
-  // لو فيه منشن للعضو، نشيله من النص
-  if (targetMember) {
-    content = content
-      .replace(new RegExp(`<@!?${targetMember.id}>`, "g"), "")
-      .trim();
-  }
+  // إزالة منشن العضو من الكلام
+  content = content
+    .replace(
+      new RegExp(`<@!?${targetMember.id}>`, "g"),
+      "",
+    )
+    .trim();
 
-  // لو مفيش كلام بعد إزالة المنشن
   if (!content) {
     return null;
   }
@@ -95,162 +99,240 @@ function getRoleInput(
   return content;
 }
 
+async function handleRoleCommand(
+  message: Message,
+  command: string,
+  action: "add" | "remove",
+) {
+  if (message.author.bot) {
+    return;
+  }
+
+  if (!message.guild) {
+    return;
+  }
+
+  if (
+    !message.content
+      .toLowerCase()
+      .startsWith(command.toLowerCase())
+  ) {
+    return;
+  }
+
+  if (
+    !message.member?.permissions.has(
+      PermissionFlagsBits.Administrator,
+    )
+  ) {
+    await message.reply({
+      content:
+        "❌ لازم تكون Administrator عشان تستخدم الأمر ده.",
+    });
+
+    return;
+  }
+
+  const targetMember = getTargetMember(message);
+
+  if (!targetMember) {
+    await message.reply({
+      content:
+        "❌ لازم تعمل **منشن للعضو** أو تستخدم الأمر **Reply** على رسالة العضو.\n\n" +
+        `مثال:\n\`${command} @العضو admin\`\n\n` +
+        `أو اعمل Reply على رسالة العضو واكتب:\n\`${command} admin\``,
+    });
+
+    return;
+  }
+
+  const roleInput = getRoleInput(
+    message,
+    targetMember,
+    command,
+  );
+
+  if (!roleInput) {
+    await message.reply({
+      content:
+        `❌ اكتب اسم الرول أو الـID بتاعها.\n\n` +
+        `مثال:\n\`${command} @العضو admin\``,
+    });
+
+    return;
+  }
+
+  const role = findRole(message, roleInput);
+
+  if (!role) {
+    await message.reply({
+      content:
+        `❌ مش لاقي رول باسم أو ID **${roleInput}**.\n\n` +
+        "تأكد إنك كتبت اسم الرول أو الـID صح.",
+    });
+
+    return;
+  }
+
+  if (role.id === message.guild.id) {
+    await message.reply({
+      content: "❌ مينفعش تستخدم رول @everyone.",
+    });
+
+    return;
+  }
+
+  if (role.managed) {
+    await message.reply({
+      content:
+        "❌ الرول دي Managed ومينفعش البوت يتعامل معاها.",
+    });
+
+    return;
+  }
+
+  const botMember = message.guild.members.me;
+
+  if (!botMember) {
+    await message.reply({
+      content: "❌ مش قادر أحدد صلاحيات البوت.",
+    });
+
+    return;
+  }
+
+  if (
+    !botMember.permissions.has(
+      PermissionFlagsBits.ManageRoles,
+    )
+  ) {
+    await message.reply({
+      content:
+        "❌ البوت محتاج صلاحية **Manage Roles** عشان يقدر يتعامل مع الرولات.",
+    });
+
+    return;
+  }
+
+  if (role.position >= botMember.roles.highest.position) {
+    await message.reply({
+      content:
+        "❌ مينفعش البوت يتعامل مع الرول دي لأنها أعلى من أو مساوية لأعلى رول عند البوت.",
+    });
+
+    return;
+  }
+
+  if (action === "add") {
+    if (targetMember.roles.cache.has(role.id)) {
+      await message.reply({
+        content:
+          `⚠️ ${targetMember} معاه رول ${role} بالفعل.`,
+      });
+
+      return;
+    }
+
+    await targetMember.roles.add(role);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x57f287)
+      .setTitle("🎭 تم إعطاء الرول")
+      .setDescription(
+        `👤 **العضو:** ${targetMember}\n` +
+        `🎭 **الرول:** ${role}\n` +
+        `🛡️ **بواسطة:** ${message.member}`,
+      )
+      .setThumbnail(
+        targetMember.displayAvatarURL({
+          extension: "png",
+          size: 256,
+        }),
+      )
+      .setTimestamp()
+      .setFooter({
+        text: "Gamblias • Role System",
+      });
+
+    await message.reply({
+      embeds: [embed],
+    });
+
+    return;
+  }
+
+  if (!targetMember.roles.cache.has(role.id)) {
+    await message.reply({
+      content:
+        `⚠️ ${targetMember} مش معاه رول ${role} أصلًا.`,
+    });
+
+    return;
+  }
+
+  await targetMember.roles.remove(role);
+
+  const embed = new EmbedBuilder()
+    .setColor(0xed4245)
+    .setTitle("🗑️ تم إزالة الرول")
+    .setDescription(
+      `👤 **العضو:** ${targetMember}\n` +
+      `🎭 **الرول:** ${role}\n` +
+      `🛡️ **بواسطة:** ${message.member}`,
+    )
+    .setThumbnail(
+      targetMember.displayAvatarURL({
+        extension: "png",
+        size: 256,
+      }),
+    )
+    .setTimestamp()
+    .setFooter({
+      text: "Gamblias • Role System",
+    });
+
+  await message.reply({
+    embeds: [embed],
+  });
+}
+
 export function registerRoleSystem(client: Client) {
   client.on("messageCreate", async (message) => {
     try {
-      if (message.author.bot) {
-        return;
-      }
-
-      if (!message.guild) {
-        return;
-      }
-
-      if (!message.content.toLowerCase().startsWith(ROLE_COMMAND)) {
-        return;
-      }
-
       if (
-        !message.member?.permissions.has(
-          PermissionFlagsBits.Administrator,
-        )
+        message.content
+          .toLowerCase()
+          .startsWith(ROLE_COMMAND.toLowerCase())
       ) {
-        await message.reply({
-          content: "❌ لازم تكون Administrator عشان تستخدم الأمر ده.",
-        });
-
-        return;
-      }
-
-      const targetMember = getTargetMember(message);
-
-      if (!targetMember) {
-        await message.reply({
-          content:
-            "❌ لازم تعمل **منشن للعضو** أو تستخدم الأمر **Reply** على رسالة العضو.\n\n" +
-            "مثال:\n" +
-            "`.رول @العضو admin`\n\n" +
-            "أو اعمل Reply على رسالة العضو واكتب:\n" +
-            "`.رول admin`",
-        });
-
-        return;
-      }
-
-      const roleInput = getRoleInput(message, targetMember);
-
-      if (!roleInput) {
-        await message.reply({
-          content:
-            "❌ اكتب اسم الرول أو الـID بتاعها.\n\n" +
-            "مثال:\n" +
-            "`.رول @العضو admin`",
-        });
-
-        return;
-      }
-
-      const role = findRole(message, roleInput);
-
-      if (!role) {
-        await message.reply({
-          content:
-            `❌ مش لاقي رول باسم أو ID **${roleInput}**.\n\n` +
-            "تأكد إنك كتبت اسم الرول أو الـID صح.",
-        });
-
-        return;
-      }
-
-      if (role.id === message.guild.id) {
-        await message.reply({
-          content: "❌ مينفعش تستخدم رول @everyone.",
-        });
-
-        return;
-      }
-
-      if (role.managed) {
-        await message.reply({
-          content:
-            "❌ الرول دي Managed ومينفعش البوت يدّيها للأعضاء.",
-        });
-
-        return;
-      }
-
-      const botMember = message.guild.members.me;
-
-      if (!botMember) {
-        await message.reply({
-          content: "❌ مش قادر أحدد صلاحيات البوت.",
-        });
+        await handleRoleCommand(
+          message,
+          ROLE_COMMAND,
+          "add",
+        );
 
         return;
       }
 
       if (
-        !botMember.permissions.has(
-          PermissionFlagsBits.ManageRoles,
-        )
+        message.content
+          .toLowerCase()
+          .startsWith(UNROLE_COMMAND.toLowerCase())
       ) {
-        await message.reply({
-          content:
-            "❌ البوت محتاج صلاحية **Manage Roles** عشان يقدر يدي الرولات.",
-        });
+        await handleRoleCommand(
+          message,
+          UNROLE_COMMAND,
+          "remove",
+        );
 
         return;
       }
-
-      if (role.position >= botMember.roles.highest.position) {
-        await message.reply({
-          content:
-            "❌ مينفعش البوت يدي الرول دي لأنها أعلى من أو مساوية لأعلى رول عند البوت.",
-        });
-
-        return;
-      }
-
-      if (targetMember.roles.cache.has(role.id)) {
-        await message.reply({
-          content:
-            `⚠️ ${targetMember} معاه رول ${role} بالفعل.`,
-        });
-
-        return;
-      }
-
-      await targetMember.roles.add(role);
-
-      const embed = new EmbedBuilder()
-        .setColor(0x57f287)
-        .setTitle("🎭 تم إعطاء الرول")
-        .setDescription(
-          `👤 **العضو:** ${targetMember}\n` +
-          `🎭 **الرول:** ${role}\n` +
-          `🛡️ **بواسطة:** ${message.member}`,
-        )
-        .setThumbnail(
-          targetMember.displayAvatarURL({
-            extension: "png",
-            size: 256,
-          }),
-        )
-        .setTimestamp()
-        .setFooter({
-          text: "Gamblias • Role System",
-        });
-
-      await message.reply({
-        embeds: [embed],
-      });
     } catch (error) {
       console.error("[RoleSystem] Error:", error);
 
       if (!message.replied) {
         await message.reply({
           content:
-            "❌ حصل خطأ أثناء إعطاء الرول. راجع الـConsole.",
+            "❌ حصل خطأ أثناء تنفيذ أمر الرول.",
         });
       }
     }
