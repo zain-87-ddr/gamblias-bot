@@ -9,6 +9,7 @@ import {
 import { registerClearSystem } from "./clear/index.ts";
 import { registerAutoCleanupSystem } from "./cleanup/index.ts";
 import { registerAntiLink } from "./automod/anti-link.ts";
+import { registerLockSystem } from "./lock/lock.ts";
 import { registerNicknameSystem } from "./nickname/nickname.ts";
 import { registerAntiMassMention } from "./automod/anti-mass-mention.ts";
 import { registerAntiSpam } from "./automod/anti-spam.ts";
@@ -437,6 +438,7 @@ registerRemovalSystem(client);
 registerNicknameSystem(client);
 registerBanSystem(client);
 registerAntiSpam(client);
+registerLockSystem(client);
 registerClearSystem(client);
 registerRoleSystem(client);
 registerAntiLink(client);
