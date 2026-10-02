@@ -618,4 +618,117 @@ export async function sendVoiceLeaveLog(
 
   const embed = new EmbedBuilder()
     .setColor(0xef4444)
-    .
+    .setTitle("🔴 خرج من Voice")
+    .addFields(
+      {
+        name: "👤 العضو",
+        value: memberMention,
+        inline: true,
+      },
+      {
+        name: "🆔 ID",
+        value: `\`${memberId}\``,
+        inline: true,
+      },
+      {
+        name: "🎙️ القناة",
+        value: channelName,
+        inline: false,
+      },
+    )
+    .setTimestamp();
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
+
+export async function sendVoiceMoveLog(
+  guild: Guild,
+  memberMention: string,
+  memberId: string,
+  oldChannelName: string,
+  newChannelName: string,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.voice,
+  );
+
+  if (!channel) {
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0xf59e0b)
+    .setTitle("🔄 تم نقل عضو في Voice")
+    .addFields(
+      {
+        name: "👤 العضو",
+        value: memberMention,
+        inline: true,
+      },
+      {
+        name: "🆔 ID",
+        value: `\`${memberId}\``,
+        inline: true,
+      },
+      {
+        name: "📤 من",
+        value: oldChannelName,
+        inline: true,
+      },
+      {
+        name: "📥 إلى",
+        value: newChannelName,
+        inline: true,
+      },
+    )
+    .setTimestamp();
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
+
+export async function sendVoiceDisconnectLog(
+  guild: Guild,
+  memberMention: string,
+  memberId: string,
+  channelName: string,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.voice,
+  );
+
+  if (!channel) {
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0xef4444)
+    .setTitle("🔌 تم فصل العضو من Voice")
+    .addFields(
+      {
+        name: "👤 العضو",
+        value: memberMention,
+        inline: true,
+      },
+      {
+        name: "🆔 ID",
+        value: `\`${memberId}\``,
+        inline: true,
+      },
+      {
+        name: "🎙️ القناة",
+        value: channelName,
+        inline: false,
+      },
+    )
+    .setTimestamp();
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
