@@ -4,7 +4,7 @@ import {
 } from "discord.js";
 
 import type { BotCommand } from "../types/command.js";
-import { sendTicketPanel } from "../tickets/ticket.js";
+import { sendTicketPanel } from "../tickets/ticket.ts";
 
 export const setupTicketsCommand: BotCommand = {
   data: new SlashCommandBuilder()
