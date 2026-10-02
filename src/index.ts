@@ -12,6 +12,7 @@ import { registerAntiLink } from "./automod/anti-link.ts";
 import { registerAntiMassMention } from "./automod/anti-mass-mention.ts";
 import { registerAntiSpam } from "./automod/anti-spam.ts";
 import { registerBanSystem } from "./bans/index.ts";
+import { registerRoleSystem } from "./roles/roles.ts";
 import { commands } from "./commands/index.ts";
 import { getBotConfig } from "./config.ts";
 
@@ -435,6 +436,7 @@ registerRemovalSystem(client);
 registerBanSystem(client);
 registerAntiSpam(client);
 registerClearSystem(client);
+registerRoleSystem(client);
 registerAntiLink(client);
 registerAntiMassMention(client);
 registerAutoCleanupSystem(client);
