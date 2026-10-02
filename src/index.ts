@@ -29,6 +29,8 @@ import { registerTimeoutSystem } from "./timeouts/index.ts";
 import { sendWelcomeMessage } from "./welcome.ts";
 import { registerWarningSystem } from "./warnings/index.ts";
 
+import { giveAutoRole } from "./autorole/autorole.ts";
+
 import {
   handleTicketButton,
   handleTicketSelectMenu,
@@ -52,6 +54,8 @@ client.on(Events.GuildMemberAdd, async (member) => {
   console.log("guildMemberAdd FIRED", member.user.username);
 
   try {
+    await giveAutoRole(member);
+
     await sendWelcomeMessage(member.guild, member);
 
     await sendMemberJoinLog(
@@ -265,6 +269,95 @@ client.on(Events.InteractionCreate, async (interaction) => {
           });
         }
       }
+
+      return;
+    }
+  }
+
+  /*
+   * =========================
+   * Auto Role Select Menu
+   * =========================
+   */
+
+  if (interaction.isRoleSelectMenu()) {
+    if (interaction.customId === "autorole_select") {
+      if (!interaction.guild) {
+        await interaction.reply({
+          content: "❌ الأمر ده لازم يتستخدم داخل السيرفر.",
+          ephemeral: true,
+        });
+        return;
+      }
+
+      if (
+        !interaction.memberPermissions?.has(
+          "Administrator",
+        )
+      ) {
+        await interaction.reply({
+          content: "❌ لازم تكون Administrator لاستخدام الإعداد ده.",
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const roleId = interaction.values[0];
+      const role = interaction.guild.roles.cache.get(roleId);
+
+      if (!role) {
+        await interaction.update({
+          content: "❌ مش قادر ألاقي الرول دي.",
+          components: [],
+        });
+        return;
+      }
+
+      const botMember = interaction.guild.members.me;
+
+      if (!botMember) {
+        await interaction.update({
+          content: "❌ مش قادر أحدد صلاحيات البوت.",
+          components: [],
+        });
+        return;
+      }
+
+      if (role.id === interaction.guild.id) {
+        await interaction.update({
+          content: "❌ مينفعش تستخدم @everyone كـAuto Role.",
+          components: [],
+        });
+        return;
+      }
+
+      if (role.managed) {
+        await interaction.update({
+          content: "❌ الرول دي Managed ومينفعش البوت يديها للأعضاء.",
+          components: [],
+        });
+        return;
+      }
+
+      if (role.position >= botMember.roles.highest.position) {
+        await interaction.update({
+          content:
+            "❌ البوت مينفعش يدي الرول دي لأن الرول أعلى من أو مساوية لأعلى رول عند البوت.",
+          components: [],
+        });
+        return;
+      }
+
+      const { setAutoRole } = await import(
+        "./autorole/autorole.ts"
+      );
+
+      setAutoRole(interaction.guild, role);
+
+      await interaction.update({
+        content: `✅ تم تحديد ${role} كـ **Auto Role**.\n\nأي عضو جديد يدخل السيرفر هيتم إعطاؤه الرول تلقائيًا.`,
+        components: [],
+      });
 
       return;
     }
