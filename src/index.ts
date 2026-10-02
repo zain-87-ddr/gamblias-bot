@@ -9,6 +9,7 @@ import {
 import { registerClearSystem } from "./clear/index.ts";
 import { registerAutoCleanupSystem } from "./cleanup/index.ts";
 import { registerAntiLink } from "./automod/anti-link.ts";
+import { registerNicknameSystem } from "./nickname/nickname.ts";
 import { registerAntiMassMention } from "./automod/anti-mass-mention.ts";
 import { registerAntiSpam } from "./automod/anti-spam.ts";
 import { registerBanSystem } from "./bans/index.ts";
@@ -433,6 +434,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 registerWarningSystem(client);
 registerTimeoutSystem(client);
 registerRemovalSystem(client);
+registerNicknameSystem(client);
 registerBanSystem(client);
 registerAntiSpam(client);
 registerClearSystem(client);
