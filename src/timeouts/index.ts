@@ -8,6 +8,7 @@ import {
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.js";
 import { sendTimeoutLog } from "../logs/index.ts";
+import { hasBotPermission } from "../permissions/permissions.ts";
 
 const TIMEOUT_COMMAND = "تايم";
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -76,12 +77,14 @@ function parseDuration(input: string): ParsedDuration | null {
 
   const value = Number(durationMatch[1]);
   const unit = durationMatch[2].toLowerCase() as "m" | "h" | "d";
+
   const multiplier =
     unit === "m"
       ? 60 * 1000
       : unit === "h"
         ? 60 * 60 * 1000
         : 24 * 60 * 60 * 1000;
+
   const durationMs = value * multiplier;
 
   if (
@@ -173,6 +176,24 @@ async function handleTimeout(message: Message) {
   }
 
   const moderator = message.member;
+
+  /*
+   * Permission Manager
+   * Owner bypass موجود داخل hasBotPermission.
+   */
+  if (
+    !hasBotPermission(
+      message.guild.id,
+      moderator,
+      "moderation.timeout",
+    )
+  ) {
+    await reply(
+      message,
+      "❌ مش مسموح لك تستخدم Permission **Timeout**.",
+    );
+    return;
+  }
 
   if (!moderator.permissions.has(PermissionFlagsBits.ModerateMembers)) {
     await reply(
