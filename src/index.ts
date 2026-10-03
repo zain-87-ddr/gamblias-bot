@@ -17,6 +17,7 @@ import { registerBanSystem } from "./bans/index.ts";
 import { registerRoleSystem } from "./roles/roles.ts";
 import { commands } from "./commands/index.ts";
 import { getBotConfig } from "./config.ts";
+import { registerSaySystem } from "./say/say.ts";
 
 import {
   sendMemberJoinLog,
@@ -437,6 +438,7 @@ registerTimeoutSystem(client);
 registerRemovalSystem(client);
 registerNicknameSystem(client);
 registerBanSystem(client);
+registerSaySystem(client);
 registerAntiSpam(client);
 registerLockSystem(client);
 registerClearSystem(client);
