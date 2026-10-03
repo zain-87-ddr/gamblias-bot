@@ -45,6 +45,10 @@ import {
   handleTicketSelectMenu,
 } from "./tickets/ticketInteractions.ts";
 
+import {
+  handlePermissionsInteraction,
+} from "./permissions/permissions.ts";
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -205,6 +209,42 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  /*
+   * =========================
+   * Permissions Manager
+   * =========================
+   */
+
+  if (
+    interaction.isRoleSelectMenu() ||
+    interaction.isStringSelectMenu() ||
+    interaction.isButton()
+  ) {
+    if (
+      interaction.customId.startsWith("permissions_") ||
+      interaction.customId.startsWith("permissions:")
+    ) {
+      try {
+        await handlePermissionsInteraction(interaction);
+      } catch (error) {
+        console.error(
+          "Permissions interaction error:",
+          error,
+        );
+
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content:
+              "❌ حصل خطأ أثناء استخدام Permission Manager.",
+            ephemeral: true,
+          });
+        }
+      }
+
+      return;
+    }
+  }
+
   /*
    * =========================
    * Ticket Buttons
