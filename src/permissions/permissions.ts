@@ -3,7 +3,6 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  PermissionFlagsBits,
   RoleSelectMenuBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
@@ -18,16 +17,72 @@ import path from "node:path";
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "permissions.json");
 
-export const PERMISSIONS_ROLE_SELECT = "permissions_role_select";
-export const PERMISSIONS_ACCESS_ROLE = "permissions_access_role";
+export const PERMISSIONS_ROLE_SELECT =
+  "permissions_role_select";
+
+export const PERMISSIONS_ACCESS_ROLE =
+  "permissions_access_role";
+
+export const PERMISSIONS_ACCESS_ROLE_SELECT =
+  "permissions_access_role_select";
 
 export const PERMISSIONS_CATEGORY_SELECT =
   "permissions_category_select";
 
-export const PERMISSIONS_BACK = "permissions_back";
-export const PERMISSIONS_CLOSE = "permissions_close";
+export const PERMISSIONS_PERMISSION_SELECT =
+  "permissions_permission_select";
 
-export const BOT_PERMISSIONS = {
+export const PERMISSIONS_BACK =
+  "permissions_back";
+
+export const PERMISSIONS_CLOSE =
+  "permissions_close";
+
+export const PERMISSIONS_ENABLE_ALL =
+  "permissions_enable_all";
+
+export const PERMISSIONS_DISABLE_ALL =
+  "permissions_disable_all";
+
+export const PERMISSIONS_RESET =
+  "permissions_reset";
+
+export const PERMISSIONS_VIEW_ALL =
+  "permissions_view_all";
+
+type PermissionId =
+  | "moderation.warn"
+  | "moderation.timeout"
+  | "moderation.untimeout"
+  | "moderation.ban"
+  | "moderation.unban"
+  | "moderation.clear"
+  | "roles.give"
+  | "roles.remove"
+  | "roles.autorole"
+  | "members.nickname"
+  | "channels.lock"
+  | "channels.unlock"
+  | "management.say"
+  | "management.tickets"
+  | "management.logs";
+
+type PermissionsData = {
+  [guildId: string]: {
+    accessRoleId?: string;
+
+    roles: {
+      [roleId: string]: {
+        permissions: PermissionId[];
+      };
+    };
+  };
+};
+
+const BOT_PERMISSIONS: Record<
+  string,
+  Record<string, string>
+> = {
   moderation: {
     warn: "Warn",
     timeout: "Timeout",
@@ -57,41 +112,15 @@ export const BOT_PERMISSIONS = {
     tickets: "Tickets",
     logs: "Logs",
   },
-} as const;
-
-type PermissionId =
-  | "moderation.warn"
-  | "moderation.timeout"
-  | "moderation.untimeout"
-  | "moderation.ban"
-  | "moderation.unban"
-  | "moderation.clear"
-  | "roles.give"
-  | "roles.remove"
-  | "roles.autorole"
-  | "members.nickname"
-  | "channels.lock"
-  | "channels.unlock"
-  | "management.say"
-  | "management.tickets"
-  | "management.logs";
-
-type PermissionsData = {
-  [guildId: string]: {
-    accessRoleId?: string;
-    roles: {
-      [roleId: string]: {
-        permissions: PermissionId[];
-      };
-    };
-  };
 };
 
 let data: PermissionsData = {};
 
 function ensureDataFile() {
   if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.mkdirSync(DATA_DIR, {
+      recursive: true,
+    });
   }
 
   if (!fs.existsSync(DATA_FILE)) {
@@ -107,14 +136,17 @@ function loadData() {
   try {
     ensureDataFile();
 
-    const file = fs.readFileSync(DATA_FILE, "utf8");
+    const file = fs.readFileSync(
+      DATA_FILE,
+      "utf8",
+    );
 
     data = file.trim()
       ? JSON.parse(file)
       : {};
   } catch (error) {
     console.error(
-      "[Permissions] Could not load permissions.json:",
+      "[Permissions] Could not load permissions:",
       error,
     );
 
@@ -133,7 +165,7 @@ function saveData() {
     );
   } catch (error) {
     console.error(
-      "[Permissions] Could not save permissions.json:",
+      "[Permissions] Could not save permissions:",
       error,
     );
   }
@@ -151,19 +183,69 @@ function getGuildData(guildId: string) {
   return data[guildId];
 }
 
+function getAllPermissions(): {
+  id: PermissionId;
+  name: string;
+}[] {
+  const result: {
+    id: PermissionId;
+    name: string;
+  }[] = [];
+
+  for (const [
+    category,
+    permissions,
+  ] of Object.entries(BOT_PERMISSIONS)) {
+    for (const [
+      key,
+      name,
+    ] of Object.entries(permissions)) {
+      result.push({
+        id: `${category}.${key}` as PermissionId,
+        name,
+      });
+    }
+  }
+
+  return result;
+}
+
+function getCategoryPermissions(
+  category: string,
+) {
+  return getAllPermissions().filter(
+    (permission) =>
+      permission.id.startsWith(
+        `${category}.`,
+      ),
+  );
+}
+
+function getRolePermissions(
+  guildId: string,
+  roleId: string,
+): PermissionId[] {
+  return (
+    getGuildData(guildId).roles[
+      roleId
+    ]?.permissions ?? []
+  );
+}
+
 export function getPermissionAccessRoleId(
   guildId: string,
 ) {
-  return getGuildData(guildId).accessRoleId;
+  return getGuildData(guildId)
+    .accessRoleId;
 }
 
 export function setPermissionAccessRole(
   guildId: string,
   roleId: string,
 ) {
-  const guildData = getGuildData(guildId);
-
-  guildData.accessRoleId = roleId;
+  getGuildData(
+    guildId,
+  ).accessRoleId = roleId;
 
   saveData();
 }
@@ -171,9 +253,9 @@ export function setPermissionAccessRole(
 export function removePermissionAccessRole(
   guildId: string,
 ) {
-  const guildData = getGuildData(guildId);
-
-  delete guildData.accessRoleId;
+  delete getGuildData(
+    guildId,
+  ).accessRoleId;
 
   saveData();
 }
@@ -187,13 +269,17 @@ export function canUsePermissionsCommand(
   }
 
   const accessRoleId =
-    getPermissionAccessRoleId(guild.id);
+    getPermissionAccessRoleId(
+      guild.id,
+    );
 
   if (!accessRoleId) {
     return false;
   }
 
-  return member.roles.cache.has(accessRoleId);
+  return member.roles.cache.has(
+    accessRoleId,
+  );
 }
 
 export function hasBotPermission(
@@ -201,83 +287,34 @@ export function hasBotPermission(
   member: any,
   permission: PermissionId,
 ) {
-  if (member.id === member.guild.ownerId) {
+  if (
+    member.id ===
+    member.guild.ownerId
+  ) {
     return true;
   }
 
-  const guildData = getGuildData(guildId);
+  const guildData =
+    getGuildData(guildId);
 
   for (const role of member.roles.cache.values()) {
-    const roleData = guildData.roles[role.id];
+    const roleData =
+      guildData.roles[role.id];
 
-    if (!roleData) continue;
+    if (!roleData) {
+      continue;
+    }
 
-    if (roleData.permissions.includes(permission)) {
+    if (
+      roleData.permissions.includes(
+        permission,
+      )
+    ) {
       return true;
     }
   }
 
   return false;
-}
-
-function getAllPermissions(): {
-  id: PermissionId;
-  name: string;
-}[] {
-  return [
-    ...Object.entries(BOT_PERMISSIONS.moderation).map(
-      ([key, name]) => ({
-        id: `moderation.${key}` as PermissionId,
-        name,
-      }),
-    ),
-
-    ...Object.entries(BOT_PERMISSIONS.roles).map(
-      ([key, name]) => ({
-        id: `roles.${key}` as PermissionId,
-        name,
-      }),
-    ),
-
-    ...Object.entries(BOT_PERMISSIONS.members).map(
-      ([key, name]) => ({
-        id: `members.${key}` as PermissionId,
-        name,
-      }),
-    ),
-
-    ...Object.entries(BOT_PERMISSIONS.channels).map(
-      ([key, name]) => ({
-        id: `channels.${key}` as PermissionId,
-        name,
-      }),
-    ),
-
-    ...Object.entries(BOT_PERMISSIONS.management).map(
-      ([key, name]) => ({
-        id: `management.${key}` as PermissionId,
-        name,
-      }),
-    ),
-  ];
-}
-
-function getCategoryPermissions(
-  category: string,
-) {
-  return getAllPermissions().filter((permission) =>
-    permission.id.startsWith(`${category}.`),
-  );
-}
-
-function getRolePermissions(
-  guildId: string,
-  roleId: string,
-): PermissionId[] {
-  return (
-    getGuildData(guildId).roles[roleId]?.permissions ??
-    []
-  );
 }
 
 function setRolePermission(
@@ -286,7 +323,8 @@ function setRolePermission(
   permission: PermissionId,
   enabled: boolean,
 ) {
-  const guildData = getGuildData(guildId);
+  const guildData =
+    getGuildData(guildId);
 
   if (!guildData.roles[roleId]) {
     guildData.roles[roleId] = {
@@ -295,17 +333,68 @@ function setRolePermission(
   }
 
   const permissions =
-    guildData.roles[roleId].permissions;
+    guildData.roles[roleId]
+      .permissions;
 
-  const index = permissions.indexOf(permission);
+  const index =
+    permissions.indexOf(
+      permission,
+    );
 
-  if (enabled && index === -1) {
+  if (
+    enabled &&
+    index === -1
+  ) {
     permissions.push(permission);
   }
 
-  if (!enabled && index !== -1) {
+  if (
+    !enabled &&
+    index !== -1
+  ) {
     permissions.splice(index, 1);
   }
+
+  saveData();
+}
+
+function enableAll(
+  guildId: string,
+  roleId: string,
+) {
+  getGuildData(guildId).roles[
+    roleId
+  ] = {
+    permissions:
+      getAllPermissions().map(
+        (permission) =>
+          permission.id,
+      ),
+  };
+
+  saveData();
+}
+
+function disableAll(
+  guildId: string,
+  roleId: string,
+) {
+  getGuildData(guildId).roles[
+    roleId
+  ] = {
+    permissions: [],
+  };
+
+  saveData();
+}
+
+function resetRole(
+  guildId: string,
+  roleId: string,
+) {
+  delete getGuildData(
+    guildId,
+  ).roles[roleId];
 
   saveData();
 }
@@ -316,40 +405,55 @@ function buildMainPanel(
 ) {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
-    .setTitle("⚙️ Gamblias Permissions")
+    .setTitle(
+      "⚙️ Gamblias Permissions",
+    )
     .setDescription(
       "Welcome to the Gamblias Permission Manager.\n\n" +
-        "اختار الـRole اللي عايز تدير صلاحياتها داخل البوت.",
+        "🎭 اختار الـRole اللي عايز تدير صلاحياتها داخل البوت.\n\n" +
+        "كل التعديلات بتتحفظ تلقائيًا.",
     )
     .setFooter({
-      text: "Gamblias • Permission Manager",
+      text:
+        "Gamblias • Permission Manager",
     });
 
-  const roleMenu = new RoleSelectMenuBuilder()
-    .setCustomId(PERMISSIONS_ROLE_SELECT)
-    .setPlaceholder("🎭 Select a role")
-    .setMinValues(1)
-    .setMaxValues(1);
+  const roleMenu =
+    new RoleSelectMenuBuilder()
+      .setCustomId(
+        PERMISSIONS_ROLE_SELECT,
+      )
+      .setPlaceholder(
+        "🎭 Select a role",
+      )
+      .setMinValues(1)
+      .setMaxValues(1);
 
-  const rows = [
+  const rows: any[] = [
     new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
       roleMenu,
     ),
   ];
 
   if (isOwner) {
-    const accessButton = new ButtonBuilder()
-      .setCustomId(PERMISSIONS_ACCESS_ROLE)
-      .setLabel("Manage /permissions Access")
-      .setEmoji("👑")
-      .setStyle(ButtonStyle.Secondary);
+    const accessButton =
+      new ButtonBuilder()
+        .setCustomId(
+          PERMISSIONS_ACCESS_ROLE,
+        )
+        .setLabel(
+          "Manage /permissions Access",
+        )
+        .setEmoji("👑")
+        .setStyle(
+          ButtonStyle.Secondary,
+        );
 
-    const row =
+    rows.push(
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         accessButton,
-      );
-
-    rows.push(row as any);
+      ),
+    );
   }
 
   return {
@@ -363,84 +467,188 @@ function buildCategoryPanel(
   role: Role,
 ) {
   const permissions =
-    getRolePermissions(guild.id, role.id);
-
-  const enabledCount = permissions.length;
-
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle("⚙️ Gamblias Permissions")
-    .setDescription(
-      `🎭 **Role:** ${role}\n\n` +
-        `🟢 **Enabled Permissions:** ${enabledCount}\n\n` +
-        "اختار القسم اللي عايز تعدل صلاحياته.",
-    )
-    .setFooter({
-      text: "Gamblias • Permission Manager",
-    });
-
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId(
-      `${PERMISSIONS_CATEGORY_SELECT}:${role.id}`,
-    )
-    .setPlaceholder("🔧 Select a category")
-    .addOptions(
-      new StringSelectMenuOptionBuilder()
-        .setLabel("Moderation")
-        .setDescription(
-          "Warnings, Timeout, Ban, Clear...",
-        )
-        .setEmoji("🛡️")
-        .setValue("moderation"),
-
-      new StringSelectMenuOptionBuilder()
-        .setLabel("Roles")
-        .setDescription(
-          "Give Role, Remove Role, Auto Role",
-        )
-        .setEmoji("🎭")
-        .setValue("roles"),
-
-      new StringSelectMenuOptionBuilder()
-        .setLabel("Members")
-        .setDescription("Nickname management")
-        .setEmoji("👤")
-        .setValue("members"),
-
-      new StringSelectMenuOptionBuilder()
-        .setLabel("Channels")
-        .setDescription("Lock and Unlock")
-        .setEmoji("🔒")
-        .setValue("channels"),
-
-      new StringSelectMenuOptionBuilder()
-        .setLabel("Management")
-        .setDescription(
-          "Say, Tickets, Logs",
-        )
-        .setEmoji("⚙️")
-        .setValue("management"),
+    getRolePermissions(
+      guild.id,
+      role.id,
     );
 
-  const row =
+  const total =
+    getAllPermissions().length;
+
+  const enabled =
+    permissions.length;
+
+  const disabled =
+    total - enabled;
+
+  const embed =
+    new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(
+        "⚙️ Gamblias Permissions",
+      )
+      .setDescription(
+        `🎭 **Role:** ${role}\n\n` +
+          `🟢 **Enabled:** ${enabled}\n` +
+          `🔴 **Disabled:** ${disabled}\n` +
+          `📊 **Total:** ${total}\n\n` +
+          "اختار القسم اللي عايز تعدل صلاحياته.",
+      )
+      .setFooter({
+        text:
+          "Gamblias • Permission Manager",
+      });
+
+  const categoryMenu =
+    new StringSelectMenuBuilder()
+      .setCustomId(
+        `${PERMISSIONS_CATEGORY_SELECT}:${role.id}`,
+      )
+      .setPlaceholder(
+        "🔧 Select a category",
+      )
+      .addOptions(
+        new StringSelectMenuOptionBuilder()
+          .setLabel(
+            "Moderation",
+          )
+          .setDescription(
+            "Warnings, Timeout, Ban, Clear...",
+          )
+          .setEmoji("🛡️")
+          .setValue(
+            "moderation",
+          ),
+
+        new StringSelectMenuOptionBuilder()
+          .setLabel("Roles")
+          .setDescription(
+            "Give Role, Remove Role, Auto Role",
+          )
+          .setEmoji("🎭")
+          .setValue("roles"),
+
+        new StringSelectMenuOptionBuilder()
+          .setLabel("Members")
+          .setDescription(
+            "Nickname management",
+          )
+          .setEmoji("👤")
+          .setValue(
+            "members",
+          ),
+
+        new StringSelectMenuOptionBuilder()
+          .setLabel(
+            "Channels",
+          )
+          .setDescription(
+            "Lock and Unlock",
+          )
+          .setEmoji("🔒")
+          .setValue(
+            "channels",
+          ),
+
+        new StringSelectMenuOptionBuilder()
+          .setLabel(
+            "Management",
+          )
+          .setDescription(
+            "Say, Tickets, Logs",
+          )
+          .setEmoji("⚙️")
+          .setValue(
+            "management",
+          ),
+      );
+
+  const categoryRow =
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-      menu,
+      categoryMenu,
     );
 
-  const closeButton = new ButtonBuilder()
-    .setCustomId(PERMISSIONS_CLOSE)
-    .setLabel("Close")
-    .setEmoji("✖️")
-    .setStyle(ButtonStyle.Danger);
+  const viewButton =
+    new ButtonBuilder()
+      .setCustomId(
+        `${PERMISSIONS_VIEW_ALL}:${role.id}`,
+      )
+      .setLabel(
+        "View All",
+      )
+      .setEmoji("📋")
+      .setStyle(
+        ButtonStyle.Primary,
+      );
 
-  const closeRow =
+  const enableButton =
+    new ButtonBuilder()
+      .setCustomId(
+        `${PERMISSIONS_ENABLE_ALL}:${role.id}`,
+      )
+      .setLabel(
+        "Enable All",
+      )
+      .setEmoji("🟢")
+      .setStyle(
+        ButtonStyle.Success,
+      );
+
+  const disableButton =
+    new ButtonBuilder()
+      .setCustomId(
+        `${PERMISSIONS_DISABLE_ALL}:${role.id}`,
+      )
+      .setLabel(
+        "Disable All",
+      )
+      .setEmoji("🔴")
+      .setStyle(
+        ButtonStyle.Danger,
+      );
+
+  const actionRow =
     new ActionRowBuilder<ButtonBuilder>().addComponents(
+      viewButton,
+      enableButton,
+      disableButton,
+    );
+
+  const resetButton =
+    new ButtonBuilder()
+      .setCustomId(
+        `${PERMISSIONS_RESET}:${role.id}`,
+      )
+      .setLabel("Reset")
+      .setEmoji("🔄")
+      .setStyle(
+        ButtonStyle.Secondary,
+      );
+
+  const closeButton =
+    new ButtonBuilder()
+      .setCustomId(
+        PERMISSIONS_CLOSE,
+      )
+      .setLabel("Close")
+      .setEmoji("✖️")
+      .setStyle(
+        ButtonStyle.Danger,
+      );
+
+  const bottomRow =
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      resetButton,
       closeButton,
     );
 
   return {
     embeds: [embed],
-    components: [row, closeRow],
+    components: [
+      categoryRow,
+      actionRow,
+      bottomRow,
+    ],
   };
 }
 
@@ -450,37 +658,52 @@ function buildPermissionPanel(
   category: string,
 ) {
   const permissions =
-    getCategoryPermissions(category);
+    getCategoryPermissions(
+      category,
+    );
 
   const enabled =
-    getRolePermissions(guild.id, role.id);
-
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle("⚙️ Permission Settings")
-    .setDescription(
-      `🎭 **Role:** ${role}\n` +
-        `📂 **Category:** ${category}\n\n` +
-        "اختار Permission عشان تغير حالتها.\n\n" +
-        "🟢 Enabled\n" +
-        "🔴 Disabled",
-    )
-    .setFooter({
-      text: "Gamblias • Permission Manager",
-    });
-
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId(
-      `permissions_toggle:${role.id}:${category}`,
-    )
-    .setPlaceholder("🔧 Select a permission")
-    .setMinValues(1)
-    .setMaxValues(1);
-
-  for (const permission of permissions) {
-    const isEnabled = enabled.includes(
-      permission.id,
+    getRolePermissions(
+      guild.id,
+      role.id,
     );
+
+  const embed =
+    new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(
+        "⚙️ Permission Settings",
+      )
+      .setDescription(
+        `🎭 **Role:** ${role}\n` +
+          `📂 **Category:** ${category}\n\n` +
+          "اختار Permission عشان تغير حالتها.\n\n" +
+          "🟢 Enabled\n" +
+          "🔴 Disabled",
+      )
+      .setFooter({
+        text:
+          "Gamblias • Permission Manager",
+      });
+
+  const menu =
+    new StringSelectMenuBuilder()
+      .setCustomId(
+        `${PERMISSIONS_PERMISSION_SELECT}:${role.id}:${category}`,
+      )
+      .setPlaceholder(
+        "🔧 Select a permission",
+      )
+      .setMinValues(1)
+      .setMaxValues(1);
+
+  for (
+    const permission of permissions
+  ) {
+    const isEnabled =
+      enabled.includes(
+        permission.id,
+      );
 
     menu.addOptions(
       new StringSelectMenuOptionBuilder()
@@ -492,7 +715,9 @@ function buildPermissionPanel(
             ? "Currently Enabled"
             : "Currently Disabled",
         )
-        .setValue(permission.id),
+        .setValue(
+          permission.id,
+        ),
     );
   }
 
@@ -501,19 +726,27 @@ function buildPermissionPanel(
       menu,
     );
 
-  const backButton = new ButtonBuilder()
-    .setCustomId(
-      `${PERMISSIONS_BACK}:${role.id}`,
-    )
-    .setLabel("Back")
-    .setEmoji("↩️")
-    .setStyle(ButtonStyle.Secondary);
+  const backButton =
+    new ButtonBuilder()
+      .setCustomId(
+        `${PERMISSIONS_BACK}:${role.id}`,
+      )
+      .setLabel("Back")
+      .setEmoji("↩️")
+      .setStyle(
+        ButtonStyle.Secondary,
+      );
 
-  const closeButton = new ButtonBuilder()
-    .setCustomId(PERMISSIONS_CLOSE)
-    .setLabel("Close")
-    .setEmoji("✖️")
-    .setStyle(ButtonStyle.Danger);
+  const closeButton =
+    new ButtonBuilder()
+      .setCustomId(
+        PERMISSIONS_CLOSE,
+      )
+      .setLabel("Close")
+      .setEmoji("✖️")
+      .setStyle(
+        ButtonStyle.Danger,
+      );
 
   const buttonRow =
     new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -523,14 +756,97 @@ function buildPermissionPanel(
 
   return {
     embeds: [embed],
-    components: [menuRow, buttonRow],
+    components: [
+      menuRow,
+      buttonRow,
+    ],
+  };
+}
+
+function buildAllPermissionsPanel(
+  guild: Guild,
+  role: Role,
+) {
+  const permissions =
+    getAllPermissions();
+
+  const enabled =
+    getRolePermissions(
+      guild.id,
+      role.id,
+    );
+
+  const lines: string[] = [];
+
+  for (
+    const permission of permissions
+  ) {
+    const state =
+      enabled.includes(
+        permission.id,
+      )
+        ? "🟢"
+        : "🔴";
+
+    lines.push(
+      `${state} **${permission.name}**`,
+    );
+  }
+
+  const embed =
+    new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(
+        "📋 All Gamblias Permissions",
+      )
+      .setDescription(
+        `🎭 **Role:** ${role}\n\n` +
+          lines.join("\n"),
+      )
+      .setFooter({
+        text:
+          "🟢 Enabled • 🔴 Disabled",
+      });
+
+  const backButton =
+    new ButtonBuilder()
+      .setCustomId(
+        `${PERMISSIONS_BACK}:${role.id}`,
+      )
+      .setLabel("Back")
+      .setEmoji("↩️")
+      .setStyle(
+        ButtonStyle.Secondary,
+      );
+
+  const closeButton =
+    new ButtonBuilder()
+      .setCustomId(
+        PERMISSIONS_CLOSE,
+      )
+      .setLabel("Close")
+      .setEmoji("✖️")
+      .setStyle(
+        ButtonStyle.Danger,
+      );
+
+  const row =
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      backButton,
+      closeButton,
+    );
+
+  return {
+    embeds: [embed],
+    components: [row],
   };
 }
 
 export async function openPermissionsPanel(
   interaction: ChatInputCommandInteraction,
 ) {
-  const guild = interaction.guild;
+  const guild =
+    interaction.guild;
 
   if (!guild) {
     await interaction.reply({
@@ -542,9 +858,15 @@ export async function openPermissionsPanel(
     return;
   }
 
-  const member = interaction.member as any;
+  const member =
+    interaction.member as any;
 
-  if (!canUsePermissionsCommand(guild, member)) {
+  if (
+    !canUsePermissionsCommand(
+      guild,
+      member,
+    )
+  ) {
     await interaction.reply({
       content:
         "❌ مش مسموح لك تستخدم Permission Manager.",
@@ -555,10 +877,14 @@ export async function openPermissionsPanel(
   }
 
   const isOwner =
-    interaction.user.id === guild.ownerId;
+    interaction.user.id ===
+    guild.ownerId;
 
   await interaction.reply({
-    ...buildMainPanel(guild, isOwner),
+    ...buildMainPanel(
+      guild,
+      isOwner,
+    ),
     ephemeral: true,
   });
 }
@@ -568,13 +894,26 @@ export async function handlePermissionsInteraction(
     | any
     | ButtonInteraction,
 ) {
-  if (!interaction.guild) return;
+  if (!interaction.guild) {
+    return;
+  }
 
-  const guild = interaction.guild;
-  const member = interaction.member as any;
+  const guild =
+    interaction.guild;
 
-  if (!canUsePermissionsCommand(guild, member)) {
-    if (!interaction.replied && !interaction.deferred) {
+  const member =
+    interaction.member as any;
+
+  if (
+    !canUsePermissionsCommand(
+      guild,
+      member,
+    )
+  ) {
+    if (
+      !interaction.replied &&
+      !interaction.deferred
+    ) {
       await interaction.reply({
         content:
           "❌ مش مسموح لك تستخدم Permission Manager.",
@@ -585,16 +924,29 @@ export async function handlePermissionsInteraction(
     return;
   }
 
+  /*
+   * =========================
+   * Select Role
+   * =========================
+   */
+
   if (
     interaction.isRoleSelectMenu?.() &&
-    interaction.customId === PERMISSIONS_ROLE_SELECT
+    interaction.customId ===
+      PERMISSIONS_ROLE_SELECT
   ) {
-    const roleId = interaction.values[0];
-    const role = guild.roles.cache.get(roleId);
+    const roleId =
+      interaction.values[0];
+
+    const role =
+      guild.roles.cache.get(
+        roleId,
+      );
 
     if (!role) {
       await interaction.update({
-        content: "❌ الرول دي مش موجودة.",
+        content:
+          "❌ الرول دي مش موجودة.",
         embeds: [],
         components: [],
       });
@@ -602,18 +954,31 @@ export async function handlePermissionsInteraction(
       return;
     }
 
-    await interaction.update({
-      ...buildCategoryPanel(guild, role),
-    });
+    await interaction.update(
+      buildCategoryPanel(
+        guild,
+        role,
+      ),
+    );
 
     return;
   }
 
+  /*
+   * =========================
+   * Owner Access
+   * =========================
+   */
+
   if (
     interaction.isButton?.() &&
-    interaction.customId === PERMISSIONS_ACCESS_ROLE
+    interaction.customId ===
+      PERMISSIONS_ACCESS_ROLE
   ) {
-    if (interaction.user.id !== guild.ownerId) {
+    if (
+      interaction.user.id !==
+      guild.ownerId
+    ) {
       await interaction.reply({
         content:
           "❌ Owner السيرفر فقط يقدر يعدل مين يستخدم /permissions.",
@@ -623,53 +988,105 @@ export async function handlePermissionsInteraction(
       return;
     }
 
-    const menu = new RoleSelectMenuBuilder()
-      .setCustomId(
-        "permissions_access_role_select",
-      )
-      .setPlaceholder(
-        "👑 Select the role allowed to use /permissions",
-      )
-      .setMinValues(1)
-      .setMaxValues(1);
+    const menu =
+      new RoleSelectMenuBuilder()
+        .setCustomId(
+          PERMISSIONS_ACCESS_ROLE_SELECT,
+        )
+        .setPlaceholder(
+          "👑 Select the role allowed to use /permissions",
+        )
+        .setMinValues(1)
+        .setMaxValues(1);
 
     const row =
       new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
         menu,
       );
 
-    const backButton = new ButtonBuilder()
-      .setCustomId(PERMISSIONS_CLOSE)
-      .setLabel("Cancel")
-      .setStyle(ButtonStyle.Secondary);
+    const currentRoleId =
+      getPermissionAccessRoleId(
+        guild.id,
+      );
+
+    const currentRole =
+      currentRoleId
+        ? guild.roles.cache.get(
+            currentRoleId,
+          )
+        : null;
+
+    const embed =
+      new EmbedBuilder()
+        .setColor(0xf1c40f)
+        .setTitle(
+          "👑 Permission Manager Access",
+        )
+        .setDescription(
+          "اختار الـRole اللي مسموح لها تستخدم `/permissions`.\n\n" +
+            `📌 **Current Access:** ${
+              currentRole
+                ? currentRole
+                : "None"
+            }\n\n` +
+            "👑 Owner السيرفر يفضل عنده الوصول دائمًا.",
+        );
+
+    const removeButton =
+      new ButtonBuilder()
+        .setCustomId(
+          "permissions_remove_access",
+        )
+        .setLabel(
+          "Remove Access Role",
+        )
+        .setEmoji("🗑️")
+        .setStyle(
+          ButtonStyle.Danger,
+        );
+
+    const closeButton =
+      new ButtonBuilder()
+        .setCustomId(
+          PERMISSIONS_CLOSE,
+        )
+        .setLabel("Cancel")
+        .setStyle(
+          ButtonStyle.Secondary,
+        );
 
     const buttonRow =
       new ActionRowBuilder<ButtonBuilder>().addComponents(
-        backButton,
-      );
-
-    const embed = new EmbedBuilder()
-      .setColor(0xf1c40f)
-      .setTitle("👑 Permission Manager Access")
-      .setDescription(
-        "اختار الـRole اللي مسموح لها تستخدم `/permissions`.\n\n" +
-          "👑 Owner السيرفر يفضل عنده الوصول حتى لو مفيش Role متخصصة.",
+        removeButton,
+        closeButton,
       );
 
     await interaction.update({
       embeds: [embed],
-      components: [row, buttonRow],
+      components: [
+        row,
+        buttonRow,
+      ],
     });
 
     return;
   }
 
+  /*
+   * =========================
+   * Set Access Role
+   * =========================
+   */
+
   if (
     interaction.isRoleSelectMenu?.() &&
     interaction.customId ===
-      "permissions_access_role_select"
+      PERMISSIONS_ACCESS_ROLE_SELECT
   ) {
-    if (interaction.user.id !== guild.ownerId) {
+    if (
+      interaction.user.id !==
+      guild.ownerId
+    ) {
       await interaction.reply({
         content:
           "❌ Owner السيرفر فقط يقدر يعمل ده.",
@@ -679,12 +1096,18 @@ export async function handlePermissionsInteraction(
       return;
     }
 
-    const roleId = interaction.values[0];
-    const role = guild.roles.cache.get(roleId);
+    const roleId =
+      interaction.values[0];
+
+    const role =
+      guild.roles.cache.get(
+        roleId,
+      );
 
     if (!role) {
       await interaction.reply({
-        content: "❌ الرول دي مش موجودة.",
+        content:
+          "❌ الرول دي مش موجودة.",
         ephemeral: true,
       });
 
@@ -709,12 +1132,59 @@ export async function handlePermissionsInteraction(
       role.id,
     );
 
-    await interaction.update({
-      ...buildMainPanel(guild, true),
-    });
+    await interaction.update(
+      buildMainPanel(
+        guild,
+        true,
+      ),
+    );
 
     return;
   }
+
+  /*
+   * =========================
+   * Remove Access Role
+   * =========================
+   */
+
+  if (
+    interaction.isButton?.() &&
+    interaction.customId ===
+      "permissions_remove_access"
+  ) {
+    if (
+      interaction.user.id !==
+      guild.ownerId
+    ) {
+      await interaction.reply({
+        content:
+          "❌ Owner السيرفر فقط يقدر يعمل ده.",
+        ephemeral: true,
+      });
+
+      return;
+    }
+
+    removePermissionAccessRole(
+      guild.id,
+    );
+
+    await interaction.update(
+      buildMainPanel(
+        guild,
+        true,
+      ),
+    );
+
+    return;
+  }
+
+  /*
+   * =========================
+   * Category
+   * =========================
+   */
 
   if (
     interaction.isStringSelectMenu?.() &&
@@ -723,13 +1193,19 @@ export async function handlePermissionsInteraction(
     )
   ) {
     const roleId =
-      interaction.customId.split(":")[1];
+      interaction.customId.split(
+        ":",
+      )[1];
 
-    const role = guild.roles.cache.get(roleId);
+    const role =
+      guild.roles.cache.get(
+        roleId,
+      );
 
     if (!role) {
       await interaction.update({
-        content: "❌ الرول دي مش موجودة.",
+        content:
+          "❌ الرول دي مش موجودة.",
         embeds: [],
         components: [],
       });
@@ -740,34 +1216,49 @@ export async function handlePermissionsInteraction(
     const category =
       interaction.values[0];
 
-    await interaction.update({
-      ...buildPermissionPanel(
+    await interaction.update(
+      buildPermissionPanel(
         guild,
         role,
         category,
       ),
-    });
+    );
 
     return;
   }
 
+  /*
+   * =========================
+   * Toggle Permission
+   * =========================
+   */
+
   if (
     interaction.isStringSelectMenu?.() &&
     interaction.customId.startsWith(
-      "permissions_toggle:",
+      `${PERMISSIONS_PERMISSION_SELECT}:`,
     )
   ) {
     const parts =
-      interaction.customId.split(":");
+      interaction.customId.split(
+        ":",
+      );
 
-    const roleId = parts[1];
-    const category = parts[2];
+    const roleId =
+      parts[1];
 
-    const role = guild.roles.cache.get(roleId);
+    const category =
+      parts[2];
+
+    const role =
+      guild.roles.cache.get(
+        roleId,
+      );
 
     if (!role) {
       await interaction.update({
-        content: "❌ الرول دي مش موجودة.",
+        content:
+          "❌ الرول دي مش موجودة.",
         embeds: [],
         components: [],
       });
@@ -782,7 +1273,9 @@ export async function handlePermissionsInteraction(
       getRolePermissions(
         guild.id,
         role.id,
-      ).includes(permission);
+      ).includes(
+        permission,
+      );
 
     setRolePermission(
       guild.id,
@@ -791,16 +1284,205 @@ export async function handlePermissionsInteraction(
       !current,
     );
 
-    await interaction.update({
-      ...buildPermissionPanel(
+    await interaction.update(
+      buildPermissionPanel(
         guild,
         role,
         category,
       ),
-    });
+    );
 
     return;
   }
+
+  /*
+   * =========================
+   * View All
+   * =========================
+   */
+
+  if (
+    interaction.isButton?.() &&
+    interaction.customId.startsWith(
+      `${PERMISSIONS_VIEW_ALL}:`,
+    )
+  ) {
+    const roleId =
+      interaction.customId.split(
+        ":",
+      )[1];
+
+    const role =
+      guild.roles.cache.get(
+        roleId,
+      );
+
+    if (!role) {
+      await interaction.reply({
+        content:
+          "❌ الرول دي مش موجودة.",
+        ephemeral: true,
+      });
+
+      return;
+    }
+
+    await interaction.update(
+      buildAllPermissionsPanel(
+        guild,
+        role,
+      ),
+    );
+
+    return;
+  }
+
+  /*
+   * =========================
+   * Enable All
+   * =========================
+   */
+
+  if (
+    interaction.isButton?.() &&
+    interaction.customId.startsWith(
+      `${PERMISSIONS_ENABLE_ALL}:`,
+    )
+  ) {
+    const roleId =
+      interaction.customId.split(
+        ":",
+      )[1];
+
+    const role =
+      guild.roles.cache.get(
+        roleId,
+      );
+
+    if (!role) {
+      await interaction.reply({
+        content:
+          "❌ الرول دي مش موجودة.",
+        ephemeral: true,
+      });
+
+      return;
+    }
+
+    enableAll(
+      guild.id,
+      role.id,
+    );
+
+    await interaction.update(
+      buildCategoryPanel(
+        guild,
+        role,
+      ),
+    );
+
+    return;
+  }
+
+  /*
+   * =========================
+   * Disable All
+   * =========================
+   */
+
+  if (
+    interaction.isButton?.() &&
+    interaction.customId.startsWith(
+      `${PERMISSIONS_DISABLE_ALL}:`,
+    )
+  ) {
+    const roleId =
+      interaction.customId.split(
+        ":",
+      )[1];
+
+    const role =
+      guild.roles.cache.get(
+        roleId,
+      );
+
+    if (!role) {
+      await interaction.reply({
+        content:
+          "❌ الرول دي مش موجودة.",
+        ephemeral: true,
+      });
+
+      return;
+    }
+
+    disableAll(
+      guild.id,
+      role.id,
+    );
+
+    await interaction.update(
+      buildCategoryPanel(
+        guild,
+        role,
+      ),
+    );
+
+    return;
+  }
+
+  /*
+   * =========================
+   * Reset
+   * =========================
+   */
+
+  if (
+    interaction.isButton?.() &&
+    interaction.customId.startsWith(
+      `${PERMISSIONS_RESET}:`,
+    )
+  ) {
+    const roleId =
+      interaction.customId.split(
+        ":",
+      )[1];
+
+    const role =
+      guild.roles.cache.get(
+        roleId,
+      );
+
+    if (!role) {
+      await interaction.reply({
+        content:
+          "❌ الرول دي مش موجودة.",
+        ephemeral: true,
+      });
+
+      return;
+    }
+
+    resetRole(
+      guild.id,
+      role.id,
+    );
+
+    await interaction.update(
+      buildCategoryPanel(
+        guild,
+        role,
+      ),
+    );
+
+    return;
+  }
+
+  /*
+   * =========================
+   * Back
+   * =========================
+   */
 
   if (
     interaction.isButton?.() &&
@@ -809,13 +1491,19 @@ export async function handlePermissionsInteraction(
     )
   ) {
     const roleId =
-      interaction.customId.split(":")[1];
+      interaction.customId.split(
+        ":",
+      )[1];
 
-    const role = guild.roles.cache.get(roleId);
+    const role =
+      guild.roles.cache.get(
+        roleId,
+      );
 
     if (!role) {
       await interaction.update({
-        content: "❌ الرول دي مش موجودة.",
+        content:
+          "❌ الرول دي مش موجودة.",
         embeds: [],
         components: [],
       });
@@ -823,21 +1511,34 @@ export async function handlePermissionsInteraction(
       return;
     }
 
-    await interaction.update({
-      ...buildCategoryPanel(guild, role),
-    });
+    await interaction.update(
+      buildCategoryPanel(
+        guild,
+        role,
+      ),
+    );
 
     return;
   }
 
+  /*
+   * =========================
+   * Close
+   * =========================
+   */
+
   if (
     interaction.isButton?.() &&
-    interaction.customId === PERMISSIONS_CLOSE
+    interaction.customId ===
+      PERMISSIONS_CLOSE
   ) {
     await interaction.update({
-      content: "✅ تم إغلاق Permission Manager.",
+      content:
+        "✅ تم إغلاق Permission Manager.",
       embeds: [],
       components: [],
     });
+
+    return;
   }
 }
