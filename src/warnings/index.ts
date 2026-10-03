@@ -11,6 +11,7 @@ import {
   sendMaxWarningLog,
   sendWarnLog,
 } from "../logs/index.ts";
+import { hasBotPermission } from "../permissions/permissions.ts";
 import {
   addWarning,
   initializeWarningStore,
@@ -162,6 +163,20 @@ async function handleWarning(message: Message) {
   }
 
   const moderator = message.member;
+
+  if (
+    !hasBotPermission(
+      message.guild.id,
+      moderator,
+      "moderation.warn",
+    )
+  ) {
+    await reply(
+      message,
+      "❌ مش مسموح لك تستخدم Permission **Warn**.",
+    );
+    return;
+  }
 
   if (
     !moderator.permissions.has(
