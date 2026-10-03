@@ -52,6 +52,7 @@ export const PERMISSIONS_VIEW_ALL =
 
 type PermissionId =
   | "moderation.warn"
+  | "moderation.unwarn"
   | "moderation.timeout"
   | "moderation.untimeout"
   | "moderation.ban"
@@ -85,6 +86,7 @@ const BOT_PERMISSIONS: Record<
 > = {
   moderation: {
     warn: "Warn",
+    unwarn: "Unwarn",
     timeout: "Timeout",
     untimeout: "Untimeout",
     ban: "Ban",
@@ -924,12 +926,6 @@ export async function handlePermissionsInteraction(
     return;
   }
 
-  /*
-   * =========================
-   * Select Role
-   * =========================
-   */
-
   if (
     interaction.isRoleSelectMenu?.() &&
     interaction.customId ===
@@ -963,12 +959,6 @@ export async function handlePermissionsInteraction(
 
     return;
   }
-
-  /*
-   * =========================
-   * Owner Access
-   * =========================
-   */
 
   if (
     interaction.isButton?.() &&
@@ -1072,12 +1062,6 @@ export async function handlePermissionsInteraction(
     return;
   }
 
-  /*
-   * =========================
-   * Set Access Role
-   * =========================
-   */
-
   if (
     interaction.isRoleSelectMenu?.() &&
     interaction.customId ===
@@ -1142,12 +1126,6 @@ export async function handlePermissionsInteraction(
     return;
   }
 
-  /*
-   * =========================
-   * Remove Access Role
-   * =========================
-   */
-
   if (
     interaction.isButton?.() &&
     interaction.customId ===
@@ -1179,12 +1157,6 @@ export async function handlePermissionsInteraction(
 
     return;
   }
-
-  /*
-   * =========================
-   * Category
-   * =========================
-   */
 
   if (
     interaction.isStringSelectMenu?.() &&
@@ -1226,12 +1198,6 @@ export async function handlePermissionsInteraction(
 
     return;
   }
-
-  /*
-   * =========================
-   * Toggle Permission
-   * =========================
-   */
 
   if (
     interaction.isStringSelectMenu?.() &&
@@ -1295,12 +1261,6 @@ export async function handlePermissionsInteraction(
     return;
   }
 
-  /*
-   * =========================
-   * View All
-   * =========================
-   */
-
   if (
     interaction.isButton?.() &&
     interaction.customId.startsWith(
@@ -1336,12 +1296,6 @@ export async function handlePermissionsInteraction(
 
     return;
   }
-
-  /*
-   * =========================
-   * Enable All
-   * =========================
-   */
 
   if (
     interaction.isButton?.() &&
@@ -1384,12 +1338,6 @@ export async function handlePermissionsInteraction(
     return;
   }
 
-  /*
-   * =========================
-   * Disable All
-   * =========================
-   */
-
   if (
     interaction.isButton?.() &&
     interaction.customId.startsWith(
@@ -1430,12 +1378,6 @@ export async function handlePermissionsInteraction(
 
     return;
   }
-
-  /*
-   * =========================
-   * Reset
-   * =========================
-   */
 
   if (
     interaction.isButton?.() &&
@@ -1478,12 +1420,6 @@ export async function handlePermissionsInteraction(
     return;
   }
 
-  /*
-   * =========================
-   * Back
-   * =========================
-   */
-
   if (
     interaction.isButton?.() &&
     interaction.customId.startsWith(
@@ -1520,12 +1456,6 @@ export async function handlePermissionsInteraction(
 
     return;
   }
-
-  /*
-   * =========================
-   * Close
-   * =========================
-   */
 
   if (
     interaction.isButton?.() &&
