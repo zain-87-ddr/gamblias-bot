@@ -8,17 +8,22 @@ import {
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.ts";
 import { sendBanLog } from "../logs/index.ts";
+import { hasBotPermission } from "../permissions/permissions.ts";
+
 const BAN_COMMAND = "بان";
 const UNBAN_COMMAND = "انبان";
 const USER_ID_PATTERN = /^\d{17,20}$/;
+
 type BanTarget = {
   target: GuildMember | null;
   reason: string;
   referencedMessage?: Message;
 };
+
 async function reply(message: Message, content: string) {
   await sendTemporaryReply(message, content);
 }
+
 function isCommand(content: string, command: string) {
   return (
     content === command ||
@@ -26,6 +31,7 @@ function isCommand(content: string, command: string) {
     content.startsWith(`${command}\n`)
   );
 }
+
 function banEmbed(
   member: GuildMember,
   moderator: GuildMember,
@@ -51,6 +57,7 @@ function banEmbed(
     )
     .setTimestamp();
 }
+
 function unbanEmbed(
   username: string,
   userId: string,
@@ -73,18 +80,22 @@ function unbanEmbed(
     )
     .setTimestamp();
 }
+
 async function resolveBanTarget(
   message: Message,
   input: string,
 ): Promise<BanTarget> {
   const guild = message.guild;
+
   if (!guild) {
     return {
       target: null,
       reason: input,
     };
   }
+
   const mention = input.match(/^<@!?(\d+)>/);
+
   if (mention) {
     try {
       return {
@@ -96,16 +107,18 @@ async function resolveBanTarget(
         message,
         "لم يتم العثور على العضو المذكور في السيرفر.",
       );
+
       return {
         target: null,
         reason: "",
       };
     }
   }
+
   if (message.reference?.messageId) {
     try {
-      const referencedMessage =
-        await message.fetchReference();
+      const referencedMessage = await message.fetchReference();
+
       return {
         target: await guild.members.fetch(
           referencedMessage.author.id,
@@ -118,17 +131,20 @@ async function resolveBanTarget(
         message,
         "لم يتم العثور على العضو صاحب الرسالة التي تم الرد عليها.",
       );
+
       return {
         target: null,
         reason: "",
       };
     }
   }
+
   return {
     target: null,
     reason: input,
   };
 }
+
 async function handleBan(message: Message) {
   if (
     !message.guild ||
@@ -137,25 +153,33 @@ async function handleBan(message: Message) {
   ) {
     return;
   }
+
   const content = message.content.trim();
+
   if (!isCommand(content, BAN_COMMAND)) {
     return;
   }
+
   const moderator = message.member;
+
   if (
-    !moderator.permissions.has(
-      PermissionFlagsBits.BanMembers,
+    !hasBotPermission(
+      message.guild.id,
+      moderator,
+      "moderation.ban",
     )
   ) {
     await reply(
       message,
-      "ليس لديك الصلاحية اللازمة لاستخدام أمر البان.",
+      "❌ مش مسموح لك تستخدم Permission **Ban**.",
     );
     return;
   }
+
   const input = content
     .slice(BAN_COMMAND.length)
     .trim();
+
   const {
     target,
     reason,
@@ -164,6 +188,7 @@ async function handleBan(message: Message) {
     message,
     input,
   );
+
   if (!target) {
     await reply(
       message,
@@ -171,6 +196,7 @@ async function handleBan(message: Message) {
     );
     return;
   }
+
   if (!reason) {
     await reply(
       message,
@@ -178,6 +204,7 @@ async function handleBan(message: Message) {
     );
     return;
   }
+
   if (
     target.id === moderator.id ||
     target.id === message.guild.ownerId ||
@@ -191,9 +218,11 @@ async function handleBan(message: Message) {
     );
     return;
   }
+
   const botMember =
     message.guild.members.me ??
     (await message.guild.members.fetchMe());
+
   if (
     target.id === message.client.user?.id ||
     !botMember.permissions.has(
@@ -209,7 +238,9 @@ async function handleBan(message: Message) {
     );
     return;
   }
+
   const channel = message.channel;
+
   if (!channel.isSendable()) {
     await reply(
       message,
@@ -217,6 +248,7 @@ async function handleBan(message: Message) {
     );
     return;
   }
+
   if (referencedMessage) {
     try {
       await referencedMessage.delete();
@@ -224,9 +256,11 @@ async function handleBan(message: Message) {
       // Continue with the ban if the original message cannot be deleted.
     }
   }
+
   await target.ban({
     reason: reason.slice(0, 512),
   });
+
   await sendBanLog(
     message.guild,
     target.user.username,
@@ -235,6 +269,7 @@ async function handleBan(message: Message) {
     moderator.toString(),
     reason,
   );
+
   await channel.send({
     content: target.toString(),
     embeds: [
@@ -246,6 +281,7 @@ async function handleBan(message: Message) {
     ],
   });
 }
+
 async function handleUnban(message: Message) {
   if (
     !message.guild ||
@@ -254,27 +290,36 @@ async function handleUnban(message: Message) {
   ) {
     return;
   }
+
   const content = message.content.trim();
+
   if (!isCommand(content, UNBAN_COMMAND)) {
     return;
   }
+
   const moderator = message.member;
+
   if (
-    !moderator.permissions.has(
-      PermissionFlagsBits.BanMembers,
+    !hasBotPermission(
+      message.guild.id,
+      moderator,
+      "moderation.unban",
     )
   ) {
     await reply(
       message,
-      "ليس لديك الصلاحية اللازمة لاستخدام أمر إلغاء البان.",
+      "❌ مش مسموح لك تستخدم Permission **Unban**.",
     );
     return;
   }
+
   const input = content
     .slice(UNBAN_COMMAND.length)
     .trim();
+
   const userId =
     input.split(/\s+/, 1)[0] ?? "";
+
   if (!userId) {
     await reply(
       message,
@@ -282,6 +327,7 @@ async function handleUnban(message: Message) {
     );
     return;
   }
+
   if (!USER_ID_PATTERN.test(userId)) {
     await reply(
       message,
@@ -289,7 +335,25 @@ async function handleUnban(message: Message) {
     );
     return;
   }
+
+  const botMember =
+    message.guild.members.me ??
+    (await message.guild.members.fetchMe());
+
+  if (
+    !botMember.permissions.has(
+      PermissionFlagsBits.BanMembers,
+    )
+  ) {
+    await reply(
+      message,
+      "لا يستطيع البوت إلغاء البان بسبب عدم امتلاكه صلاحية **Ban Members**.",
+    );
+    return;
+  }
+
   const channel = message.channel;
+
   if (!channel.isSendable()) {
     await reply(
       message,
@@ -297,7 +361,9 @@ async function handleUnban(message: Message) {
     );
     return;
   }
+
   let ban;
+
   try {
     ban = await message.guild.bans.fetch(userId);
   } catch {
@@ -307,10 +373,12 @@ async function handleUnban(message: Message) {
     );
     return;
   }
+
   await message.guild.bans.remove(
     userId,
     "إلغاء الحظر",
   );
+
   await channel.send({
     embeds: [
       unbanEmbed(
@@ -321,6 +389,7 @@ async function handleUnban(message: Message) {
     ],
   });
 }
+
 export function registerBanSystem(client: Client) {
   client.on(
     Events.MessageCreate,
@@ -333,6 +402,7 @@ export function registerBanSystem(client: Client) {
           "Ban system error:",
           error,
         );
+
         if (
           message.guild &&
           message.content
