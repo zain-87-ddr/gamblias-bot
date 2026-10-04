@@ -6,6 +6,8 @@ import {
   type Message,
 } from "discord.js";
 
+import { hasBotPermission } from "../permissions/permissions.ts";
+
 const NICKNAME_COMMAND = "n";
 
 function getTargetMember(message: Message): GuildMember | null {
@@ -63,7 +65,7 @@ export function registerNicknameSystem(client: Client) {
         return;
       }
 
-      if (!message.guild) {
+      if (!message.guild || !message.member) {
         return;
       }
 
@@ -86,15 +88,17 @@ export function registerNicknameSystem(client: Client) {
         return;
       }
 
-      // لازم المستخدم يكون عنده Manage Nicknames
+      // Gamblias Permission
       if (
-        !message.member?.permissions.has(
-          PermissionFlagsBits.ManageNicknames,
+        !hasBotPermission(
+          message.guild.id,
+          message.member,
+          "members.nickname",
         )
       ) {
         await message.reply({
           content:
-            "❌ لازم تكون إداري وعندك صلاحية **Manage Nicknames** عشان تستخدم الأمر ده.",
+            "❌ مش مسموح لك تستخدم Permission **Nickname**.",
         });
 
         return;
@@ -151,6 +155,7 @@ export function registerNicknameSystem(client: Client) {
         return;
       }
 
+      // صلاحية البوت نفسه
       if (
         !botMember.permissions.has(
           PermissionFlagsBits.ManageNicknames,
