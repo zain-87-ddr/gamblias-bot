@@ -6,12 +6,17 @@ import {
   type Message,
   type Role,
 } from "discord.js";
+
 import { hasBotPermission } from "../permissions/permissions.ts";
+import { sendRoleLog } from "../logs/index.ts";
 
 const ROLE_COMMAND = ".رول";
 const UNROLE_COMMAND = ".انرول";
 
-function findRole(message: Message, roleInput: string): Role | null {
+function findRole(
+  message: Message,
+  roleInput: string,
+): Role | null {
   if (!message.guild) {
     return null;
   }
@@ -19,19 +24,22 @@ function findRole(message: Message, roleInput: string): Role | null {
   const input = roleInput.trim();
 
   // Role ID
-  const roleById = message.guild.roles.cache.get(input);
+  const roleById =
+    message.guild.roles.cache.get(input);
 
   if (roleById) {
     return roleById;
   }
 
   // Role Mention
-  const roleMentionMatch = input.match(/^<@&(\d+)>$/);
+  const roleMentionMatch =
+    input.match(/^<@&(\d+)>$/);
 
   if (roleMentionMatch) {
-    const roleByMention = message.guild.roles.cache.get(
-      roleMentionMatch[1],
-    );
+    const roleByMention =
+      message.guild.roles.cache.get(
+        roleMentionMatch[1],
+      );
 
     if (roleByMention) {
       return roleByMention;
@@ -39,10 +47,12 @@ function findRole(message: Message, roleInput: string): Role | null {
   }
 
   // Role Name
-  const roleByName = message.guild.roles.cache.find(
-    (role) =>
-      role.name.toLowerCase() === input.toLowerCase(),
-  );
+  const roleByName =
+    message.guild.roles.cache.find(
+      (role) =>
+        role.name.toLowerCase() ===
+        input.toLowerCase(),
+    );
 
   return roleByName ?? null;
 }
@@ -55,7 +65,8 @@ function getTargetMember(
   }
 
   // بالمنشن
-  const mentionedMember = message.mentions.members?.first();
+  const mentionedMember =
+    message.mentions.members?.first();
 
   if (mentionedMember) {
     return mentionedMember;
@@ -63,12 +74,14 @@ function getTargetMember(
 
   // بالـReply
   if (message.reference?.messageId) {
-    const repliedUser = message.mentions.repliedUser;
+    const repliedUser =
+      message.mentions.repliedUser;
 
     if (repliedUser) {
       return (
-        message.guild.members.cache.get(repliedUser.id) ??
-        null
+        message.guild.members.cache.get(
+          repliedUser.id,
+        ) ?? null
       );
     }
   }
@@ -88,7 +101,10 @@ function getRoleInput(
   // إزالة منشن العضو من الكلام
   content = content
     .replace(
-      new RegExp(`<@!?${targetMember.id}>`, "g"),
+      new RegExp(
+        `<@!?${targetMember.id}>`,
+        "g",
+      ),
       "",
     )
     .trim();
@@ -146,7 +162,8 @@ async function handleRoleCommand(
     return;
   }
 
-  const targetMember = getTargetMember(message);
+  const targetMember =
+    getTargetMember(message);
 
   if (!targetMember) {
     await message.reply({
@@ -159,11 +176,12 @@ async function handleRoleCommand(
     return;
   }
 
-  const roleInput = getRoleInput(
-    message,
-    targetMember,
-    command,
-  );
+  const roleInput =
+    getRoleInput(
+      message,
+      targetMember,
+      command,
+    );
 
   if (!roleInput) {
     await message.reply({
@@ -175,7 +193,11 @@ async function handleRoleCommand(
     return;
   }
 
-  const role = findRole(message, roleInput);
+  const role =
+    findRole(
+      message,
+      roleInput,
+    );
 
   if (!role) {
     await message.reply({
@@ -189,7 +211,8 @@ async function handleRoleCommand(
 
   if (role.id === message.guild.id) {
     await message.reply({
-      content: "❌ مينفعش تستخدم رول @everyone.",
+      content:
+        "❌ مينفعش تستخدم رول @everyone.",
     });
 
     return;
@@ -204,11 +227,13 @@ async function handleRoleCommand(
     return;
   }
 
-  const botMember = message.guild.members.me;
+  const botMember =
+    message.guild.members.me;
 
   if (!botMember) {
     await message.reply({
-      content: "❌ مش قادر أحدد صلاحيات البوت.",
+      content:
+        "❌ مش قادر أحدد صلاحيات البوت.",
     });
 
     return;
@@ -227,7 +252,10 @@ async function handleRoleCommand(
     return;
   }
 
-  if (role.position >= botMember.roles.highest.position) {
+  if (
+    role.position >=
+    botMember.roles.highest.position
+  ) {
     await message.reply({
       content:
         "❌ مينفعش البوت يتعامل مع الرول دي لأنها أعلى من أو مساوية لأعلى رول عند البوت.",
@@ -236,8 +264,18 @@ async function handleRoleCommand(
     return;
   }
 
+  /*
+   * =========================
+   * Give Role
+   * =========================
+   */
+
   if (action === "add") {
-    if (targetMember.roles.cache.has(role.id)) {
+    if (
+      targetMember.roles.cache.has(
+        role.id,
+      )
+    ) {
       await message.reply({
         content:
           `⚠️ ${targetMember} معاه رول ${role} بالفعل.`,
@@ -248,24 +286,39 @@ async function handleRoleCommand(
 
     await targetMember.roles.add(role);
 
-    const embed = new EmbedBuilder()
-      .setColor(0x57f287)
-      .setTitle("🎭 تم إعطاء الرول")
-      .setDescription(
-        `👤 **العضو:** ${targetMember}\n` +
-        `🎭 **الرول:** ${role}\n` +
-        `🛡️ **بواسطة:** ${message.member}`,
-      )
-      .setThumbnail(
-        targetMember.displayAvatarURL({
-          extension: "png",
-          size: 256,
-        }),
-      )
-      .setTimestamp()
-      .setFooter({
-        text: "Gamblias • Role System",
-      });
+    // Role Log
+    await sendRoleLog(
+      message.guild,
+      "تم إعطاء رول",
+      role.toString(),
+      targetMember.toString(),
+      message.member.toString(),
+    );
+
+    const embed =
+      new EmbedBuilder()
+        .setColor(0x57f287)
+        .setTitle(
+          "🎭 تم إعطاء الرول",
+        )
+        .setDescription(
+          `👤 **العضو:** ${targetMember}\n` +
+            `🎭 **الرول:** ${role}\n` +
+            `🛡️ **بواسطة:** ${message.member}`,
+        )
+        .setThumbnail(
+          targetMember.displayAvatarURL(
+            {
+              extension: "png",
+              size: 256,
+            },
+          ),
+        )
+        .setTimestamp()
+        .setFooter({
+          text:
+            "Gamblias • Role System",
+        });
 
     await message.reply({
       embeds: [embed],
@@ -274,7 +327,17 @@ async function handleRoleCommand(
     return;
   }
 
-  if (!targetMember.roles.cache.has(role.id)) {
+  /*
+   * =========================
+   * Remove Role
+   * =========================
+   */
+
+  if (
+    !targetMember.roles.cache.has(
+      role.id,
+    )
+  ) {
     await message.reply({
       content:
         `⚠️ ${targetMember} مش معاه رول ${role} أصلًا.`,
@@ -285,69 +348,94 @@ async function handleRoleCommand(
 
   await targetMember.roles.remove(role);
 
-  const embed = new EmbedBuilder()
-    .setColor(0xed4245)
-    .setTitle("🗑️ تم إزالة الرول")
-    .setDescription(
-      `👤 **العضو:** ${targetMember}\n` +
-      `🎭 **الرول:** ${role}\n` +
-      `🛡️ **بواسطة:** ${message.member}`,
-    )
-    .setThumbnail(
-      targetMember.displayAvatarURL({
-        extension: "png",
-        size: 256,
-      }),
-    )
-    .setTimestamp()
-    .setFooter({
-      text: "Gamblias • Role System",
-    });
+  // Role Log
+  await sendRoleLog(
+    message.guild,
+    "تم إزالة رول",
+    role.toString(),
+    targetMember.toString(),
+    message.member.toString(),
+  );
+
+  const embed =
+    new EmbedBuilder()
+      .setColor(0xed4245)
+      .setTitle(
+        "🗑️ تم إزالة الرول",
+      )
+      .setDescription(
+        `👤 **العضو:** ${targetMember}\n` +
+          `🎭 **الرول:** ${role}\n` +
+          `🛡️ **بواسطة:** ${message.member}`,
+      )
+      .setThumbnail(
+        targetMember.displayAvatarURL({
+          extension: "png",
+          size: 256,
+        }),
+      )
+      .setTimestamp()
+      .setFooter({
+        text:
+          "Gamblias • Role System",
+      });
 
   await message.reply({
     embeds: [embed],
   });
 }
 
-export function registerRoleSystem(client: Client) {
-  client.on("messageCreate", async (message) => {
-    try {
-      if (
-        message.content
-          .toLowerCase()
-          .startsWith(ROLE_COMMAND.toLowerCase())
-      ) {
-        await handleRoleCommand(
-          message,
-          ROLE_COMMAND,
-          "add",
+export function registerRoleSystem(
+  client: Client,
+) {
+  client.on(
+    "messageCreate",
+    async (message) => {
+      try {
+        if (
+          message.content
+            .toLowerCase()
+            .startsWith(
+              ROLE_COMMAND.toLowerCase(),
+            )
+        ) {
+          await handleRoleCommand(
+            message,
+            ROLE_COMMAND,
+            "add",
+          );
+
+          return;
+        }
+
+        if (
+          message.content
+            .toLowerCase()
+            .startsWith(
+              UNROLE_COMMAND.toLowerCase(),
+            )
+        ) {
+          await handleRoleCommand(
+            message,
+            UNROLE_COMMAND,
+            "remove",
+          );
+
+          return;
+        }
+      } catch (error) {
+        console.error(
+          "[RoleSystem] Error:",
+          error,
         );
 
-        return;
+        if (!message.replied) {
+          await message.reply({
+            content:
+              "❌ حصل خطأ أثناء تنفيذ أمر الرول.",
+          });
+        }
       }
-
-      if (
-        message.content
-          .toLowerCase()
-          .startsWith(UNROLE_COMMAND.toLowerCase())
-      ) {
-        await handleRoleCommand(
-          message,
-          UNROLE_COMMAND,
-          "remove",
-        );
-
-        return;
-      }
-    } catch (error) {
-      console.error("[RoleSystem] Error:", error);
-
-      if (!message.replied) {
-        await message.reply({
-          content:
-            "❌ حصل خطأ أثناء تنفيذ أمر الرول.",
-        });
-      }
-    }
-  });
+    },
+  );
 }
