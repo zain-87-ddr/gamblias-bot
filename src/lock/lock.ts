@@ -6,6 +6,8 @@ import {
   type TextChannel,
 } from "discord.js";
 
+import { hasBotPermission } from "../permissions/permissions.ts";
+
 export function registerLockSystem(client: Client) {
   client.on("messageCreate", async (message) => {
     try {
@@ -19,15 +21,30 @@ export function registerLockSystem(client: Client) {
         return;
       }
 
-      // لازم يكون عنده Manage Channels
+      if (!message.member) {
+        return;
+      }
+
+      const permission =
+        content === "قفل"
+          ? "channels.lock"
+          : "channels.unlock";
+
+      const permissionName =
+        content === "قفل"
+          ? "Lock"
+          : "Unlock";
+
       if (
-        !message.member?.permissions.has(
-          PermissionFlagsBits.ManageChannels,
+        !hasBotPermission(
+          message.guild.id,
+          message.member,
+          permission,
         )
       ) {
         await message.reply({
           content:
-            "❌ لازم تكون إداري وعندك صلاحية **Manage Channels** عشان تستخدم الأمر ده.",
+            `❌ مش مسموح لك تستخدم Permission **${permissionName}**.`,
         });
 
         return;
@@ -39,6 +56,30 @@ export function registerLockSystem(client: Client) {
         await message.reply({
           content:
             "❌ الأمر ده يشتغل في القنوات النصية فقط.",
+        });
+
+        return;
+      }
+
+      const botMember = message.guild.members.me;
+
+      if (!botMember) {
+        await message.reply({
+          content:
+            "❌ مش قادر أحدد البوت داخل السيرفر.",
+        });
+
+        return;
+      }
+
+      if (
+        !botMember.permissions.has(
+          PermissionFlagsBits.ManageChannels,
+        )
+      ) {
+        await message.reply({
+          content:
+            "❌ البوت محتاج صلاحية **Manage Channels** عشان يقدر يقفل أو يفتح القناة.",
         });
 
         return;
