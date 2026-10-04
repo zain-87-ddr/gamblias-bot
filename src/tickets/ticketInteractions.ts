@@ -2,7 +2,6 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
   type ButtonInteraction,
   type GuildMember,
   type StringSelectMenuInteraction,
@@ -10,6 +9,7 @@ import {
 } from "discord.js";
 
 import { hasBotPermission } from "../permissions/permissions.ts";
+import { sendTicketLog } from "../logs/index.ts";
 
 import {
   TICKET_PANEL_BUTTON,
@@ -54,7 +54,11 @@ export async function handleTicketButton(
     return;
   }
 
-  if (!hasTicketPermission(interaction.member as GuildMember)) {
+  if (
+    !hasTicketPermission(
+      interaction.member as GuildMember,
+    )
+  ) {
     await interaction.reply({
       content:
         "❌ مش مسموح لك تستخدم Permission **Tickets**.",
@@ -95,6 +99,14 @@ export async function handleTicketButton(
       ],
     });
 
+    await sendTicketLog(
+      interaction.guild,
+      "تم استلام تكت",
+      `${channel}`,
+      undefined,
+      interaction.user.toString(),
+    );
+
     return;
   }
 
@@ -125,10 +137,11 @@ export async function handleTicketButton(
       .setEmoji("❌")
       .setStyle(ButtonStyle.Secondary);
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      confirmButton,
-      cancelButton,
-    );
+    const row =
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        confirmButton,
+        cancelButton,
+      );
 
     await interaction.reply({
       content: "🔒 هل أنت متأكد من قفل التكت؟",
@@ -153,6 +166,15 @@ export async function handleTicketButton(
 
     if (!channel || !channel.isTextBased()) return;
 
+    // نسجل قبل حذف القناة
+    await sendTicketLog(
+      interaction.guild,
+      "تم قفل تكت",
+      `#${channel.name} (\`${channel.id}\`)`,
+      undefined,
+      interaction.user.toString(),
+    );
+
     await interaction.update({
       content: "🔒 جاري قفل التكت...",
       components: [],
@@ -162,7 +184,10 @@ export async function handleTicketButton(
       try {
         await channel.delete("Ticket closed");
       } catch (error) {
-        console.error("Could not delete ticket:", error);
+        console.error(
+          "Could not delete ticket:",
+          error,
+        );
       }
     }, 3000);
   }
@@ -188,9 +213,10 @@ export async function handleTicketSelectMenu(
       return;
     }
 
-    const member = await interaction.guild.members.fetch(
-      interaction.user.id,
-    );
+    const member =
+      await interaction.guild.members.fetch(
+        interaction.user.id,
+      );
 
     try {
       const ticket = await createTicket(
@@ -205,10 +231,14 @@ export async function handleTicketSelectMenu(
         components: [],
       });
     } catch (error) {
-      console.error("Could not create ticket:", error);
+      console.error(
+        "Could not create ticket:",
+        error,
+      );
 
       await interaction.update({
-        content: "❌ حصل خطأ أثناء إنشاء التكت.",
+        content:
+          "❌ حصل خطأ أثناء إنشاء التكت.",
         components: [],
       });
     }
@@ -216,7 +246,9 @@ export async function handleTicketSelectMenu(
     return;
   }
 
-  if (interaction.customId === TICKET_ADD_MEMBER_MENU) {
+  if (
+    interaction.customId === TICKET_ADD_MEMBER_MENU
+  ) {
     if (
       !hasTicketPermission(
         interaction.member as GuildMember,
@@ -235,7 +267,8 @@ export async function handleTicketSelectMenu(
 
     if (!channel || !channel.isTextBased()) {
       await interaction.update({
-        content: "❌ مش قادر أوصل للتكت.",
+        content:
+          "❌ مش قادر أوصل للتكت.",
         components: [],
       });
 
@@ -245,25 +278,41 @@ export async function handleTicketSelectMenu(
     const userId = interaction.values[0];
 
     try {
-      await channel.permissionOverwrites.create(userId, {
-        ViewChannel: true,
-        SendMessages: true,
-        ReadMessageHistory: true,
-      });
+      await channel.permissionOverwrites.create(
+        userId,
+        {
+          ViewChannel: true,
+          SendMessages: true,
+          ReadMessageHistory: true,
+        },
+      );
 
       await interaction.update({
-        content: `✅ تم إضافة <@${userId}> للتكت.`,
+        content:
+          `✅ تم إضافة <@${userId}> للتكت.`,
         components: [],
       });
 
       await channel.send(
         `➕ تم إضافة <@${userId}> للتكت بواسطة ${interaction.user}.`,
       );
+
+      await sendTicketLog(
+        interaction.guild,
+        "تم إضافة عضو للتكت",
+        `${channel}`,
+        `<@${userId}>`,
+        interaction.user.toString(),
+      );
     } catch (error) {
-      console.error("Could not add member to ticket:", error);
+      console.error(
+        "Could not add member to ticket:",
+        error,
+      );
 
       await interaction.update({
-        content: "❌ حصل خطأ أثناء إضافة العضو.",
+        content:
+          "❌ حصل خطأ أثناء إضافة العضو.",
         components: [],
       });
     }
