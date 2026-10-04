@@ -6,7 +6,7 @@ import {
   type Message,
 } from "discord.js";
 
-const LOG_CATEGORY_NAME = "GAMBLIAS LOGS";
+const LOG_CATEGORY_NAME = "LOGS";
 
 const LOG_CHANNEL_NAMES = {
   ban: "ban",
@@ -28,11 +28,6 @@ async function getLogChannel(
   channelName: string,
 ): Promise<GuildTextBasedChannel | null> {
   try {
-    /*
-     * نعمل Fetch للقنوات من Discord مباشرة
-     * بدل الاعتماد على الـCache فقط.
-     */
-
     const channels =
       await guild.channels.fetch();
 
