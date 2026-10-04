@@ -26,6 +26,7 @@ import {
   sendVoiceJoinLog,
   sendVoiceLeaveLog,
   sendVoiceMoveLog,
+  sendChannelLog,
 } from "./logs/index.ts";
 
 import { registerRemovalSystem } from "./removals/index.ts";
@@ -62,6 +63,12 @@ const client = new Client({
 client.once(Events.ClientReady, (readyClient) => {
   console.info(`Ready! Logged in as ${readyClient.user.tag}`);
 });
+
+/*
+ * =========================
+ * Member Logs
+ * =========================
+ */
 
 client.on(Events.GuildMemberAdd, async (member) => {
   console.log("guildMemberAdd FIRED", member.user.username);
@@ -102,6 +109,12 @@ client.on(Events.GuildMemberRemove, async (member) => {
     );
   }
 });
+
+/*
+ * =========================
+ * Message Logs
+ * =========================
+ */
 
 client.on(Events.MessageDelete, async (message) => {
   try {
@@ -145,6 +158,12 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
     console.error("Message edit log error:", error);
   }
 });
+
+/*
+ * =========================
+ * Voice Logs
+ * =========================
+ */
 
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   try {
@@ -208,6 +227,114 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   }
 });
 
+/*
+ * =========================
+ * Channel Logs
+ * =========================
+ */
+
+client.on(Events.ChannelCreate, async (channel) => {
+  try {
+    if (!channel.guild) {
+      return;
+    }
+
+    await sendChannelLog(
+      channel.guild,
+      "تم إنشاء قناة",
+      `<#${channel.id}>`,
+      undefined,
+      channel.name,
+    );
+  } catch (error) {
+    console.error(
+      "Channel create log error:",
+      error,
+    );
+  }
+});
+
+client.on(Events.ChannelDelete, async (channel) => {
+  try {
+    if (!channel.guild) {
+      return;
+    }
+
+    await sendChannelLog(
+      channel.guild,
+      "تم حذف قناة",
+      `#${channel.name}`,
+      channel.name,
+    );
+  } catch (error) {
+    console.error(
+      "Channel delete log error:",
+      error,
+    );
+  }
+});
+
+client.on(
+  Events.ChannelUpdate,
+  async (oldChannel, newChannel) => {
+    try {
+      if (!newChannel.guild) {
+        return;
+      }
+
+      /*
+       * تغيير اسم القناة
+       */
+
+      if (oldChannel.name !== newChannel.name) {
+        await sendChannelLog(
+          newChannel.guild,
+          "تم تغيير اسم قناة",
+          `<#${newChannel.id}>`,
+          oldChannel.name ?? "بدون اسم",
+          newChannel.name,
+        );
+      }
+
+      /*
+       * تغيير الـCategory
+       */
+
+      if (
+        oldChannel.parentId !==
+        newChannel.parentId
+      ) {
+        const oldParent =
+          oldChannel.parent?.name ??
+          "بدون تصنيف";
+
+        const newParent =
+          newChannel.parent?.name ??
+          "بدون تصنيف";
+
+        await sendChannelLog(
+          newChannel.guild,
+          "تم تغيير تصنيف قناة",
+          `<#${newChannel.id}>`,
+          oldParent,
+          newParent,
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Channel update log error:",
+        error,
+      );
+    }
+  },
+);
+
+/*
+ * =========================
+ * Interactions
+ * =========================
+ */
+
 client.on(Events.InteractionCreate, async (interaction) => {
   /*
    * =========================
@@ -232,7 +359,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
           error,
         );
 
-        if (!interaction.replied && !interaction.deferred) {
+        if (
+          !interaction.replied &&
+          !interaction.deferred
+        ) {
           await interaction.reply({
             content:
               "❌ حصل خطأ أثناء استخدام Permission Manager.",
@@ -261,15 +391,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
       "ticket_close_cancel",
     ];
 
-    if (ticketButtons.includes(interaction.customId)) {
+    if (
+      ticketButtons.includes(
+        interaction.customId,
+      )
+    ) {
       try {
         await handleTicketButton(interaction);
       } catch (error) {
-        console.error("Ticket button error:", error);
+        console.error(
+          "Ticket button error:",
+          error,
+        );
 
-        if (!interaction.replied && !interaction.deferred) {
+        if (
+          !interaction.replied &&
+          !interaction.deferred
+        ) {
           await interaction.reply({
-            content: "❌ حصل خطأ أثناء تنفيذ العملية.",
+            content:
+              "❌ حصل خطأ أثناء تنفيذ العملية.",
             ephemeral: true,
           });
         }
@@ -286,15 +427,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
    */
 
   if (interaction.isStringSelectMenu()) {
-    if (interaction.customId === "ticket_type_menu") {
+    if (
+      interaction.customId ===
+      "ticket_type_menu"
+    ) {
       try {
-        await handleTicketSelectMenu(interaction);
+        await handleTicketSelectMenu(
+          interaction,
+        );
       } catch (error) {
-        console.error("Ticket type menu error:", error);
+        console.error(
+          "Ticket type menu error:",
+          error,
+        );
 
-        if (!interaction.replied && !interaction.deferred) {
+        if (
+          !interaction.replied &&
+          !interaction.deferred
+        ) {
           await interaction.reply({
-            content: "❌ حصل خطأ أثناء إنشاء التكت.",
+            content:
+              "❌ حصل خطأ أثناء إنشاء التكت.",
             ephemeral: true,
           });
         }
@@ -305,15 +458,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.isUserSelectMenu()) {
-    if (interaction.customId === "ticket_add_member_menu") {
+    if (
+      interaction.customId ===
+      "ticket_add_member_menu"
+    ) {
       try {
-        await handleTicketSelectMenu(interaction);
+        await handleTicketSelectMenu(
+          interaction,
+        );
       } catch (error) {
-        console.error("Ticket add member menu error:", error);
+        console.error(
+          "Ticket add member menu error:",
+          error,
+        );
 
-        if (!interaction.replied && !interaction.deferred) {
+        if (
+          !interaction.replied &&
+          !interaction.deferred
+        ) {
           await interaction.reply({
-            content: "❌ حصل خطأ أثناء إضافة العضو.",
+            content:
+              "❌ حصل خطأ أثناء إضافة العضو.",
             ephemeral: true,
           });
         }
@@ -330,10 +495,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
    */
 
   if (interaction.isRoleSelectMenu()) {
-    if (interaction.customId === "autorole_select") {
+    if (
+      interaction.customId ===
+      "autorole_select"
+    ) {
       if (!interaction.guild) {
         await interaction.reply({
-          content: "❌ الأمر ده لازم يتستخدم داخل السيرفر.",
+          content:
+            "❌ الأمر ده لازم يتستخدم داخل السيرفر.",
           ephemeral: true,
         });
 
@@ -342,7 +511,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (!interaction.member) {
         await interaction.reply({
-          content: "❌ مش قادر أحدد العضو.",
+          content:
+            "❌ مش قادر أحدد العضو.",
           ephemeral: true,
         });
 
@@ -365,32 +535,44 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      const roleId = interaction.values[0];
-      const role = interaction.guild.roles.cache.get(roleId);
+      const roleId =
+        interaction.values[0];
+
+      const role =
+        interaction.guild.roles.cache.get(
+          roleId,
+        );
 
       if (!role) {
         await interaction.update({
-          content: "❌ مش قادر ألاقي الرول دي.",
+          content:
+            "❌ مش قادر ألاقي الرول دي.",
           components: [],
         });
 
         return;
       }
 
-      const botMember = interaction.guild.members.me;
+      const botMember =
+        interaction.guild.members.me;
 
       if (!botMember) {
         await interaction.update({
-          content: "❌ مش قادر أحدد صلاحيات البوت.",
+          content:
+            "❌ مش قادر أحدد صلاحيات البوت.",
           components: [],
         });
 
         return;
       }
 
-      if (role.id === interaction.guild.id) {
+      if (
+        role.id ===
+        interaction.guild.id
+      ) {
         await interaction.update({
-          content: "❌ مينفعش تستخدم @everyone كـAuto Role.",
+          content:
+            "❌ مينفعش تستخدم @everyone كـAuto Role.",
           components: [],
         });
 
@@ -407,7 +589,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      if (role.position >= botMember.roles.highest.position) {
+      if (
+        role.position >=
+        botMember.roles.highest.position
+      ) {
         await interaction.update({
           content:
             "❌ البوت مينفعش يدي الرول دي لأن الرول أعلى من أو مساوية لأعلى رول عند البوت.",
@@ -420,11 +605,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       /*
        * حفظ الـAuto Role
        */
-      setAutoRole(interaction.guild, role);
+
+      setAutoRole(
+        interaction.guild,
+        role,
+      );
 
       /*
        * إعطاء الرول لكل الأعضاء الموجودين حاليًا
        */
+
       await interaction.update({
         content:
           `⏳ جاري إعطاء ${role} كـ **Auto Role** للأعضاء الموجودين حاليًا...\n\n` +
@@ -432,10 +622,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         components: [],
       });
 
-      const result = await giveAutoRoleToExistingMembers(
-        interaction.guild,
-        role,
-      );
+      const result =
+        await giveAutoRoleToExistingMembers(
+          interaction.guild,
+          role,
+        );
 
       if (!result) {
         await interaction.editReply({
@@ -474,7 +665,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const command = commands.find(
     (registeredCommand) =>
-      registeredCommand.data.name === interaction.commandName,
+      registeredCommand.data.name ===
+      interaction.commandName,
   );
 
   if (!command) {
@@ -492,6 +684,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await replyWithError(interaction);
   }
 });
+
+/*
+ * =========================
+ * Systems
+ * =========================
+ */
 
 registerWarningSystem(client);
 registerTimeoutSystem(client);
@@ -513,7 +711,10 @@ async function replyWithError(
   const message =
     "Something went wrong while running that command.";
 
-  if (interaction.replied || interaction.deferred) {
+  if (
+    interaction.replied ||
+    interaction.deferred
+  ) {
     await interaction.followUp({
       content: message,
       ephemeral: true,
@@ -529,15 +730,22 @@ async function replyWithError(
 }
 
 async function shutdown(signal: string) {
-  console.info(`Received ${signal}; shutting down.`);
+  console.info(
+    `Received ${signal}; shutting down.`,
+  );
 
   client.destroy();
 
   process.exit(0);
 }
 
-process.once("SIGINT", () => void shutdown("SIGINT"));
-process.once("SIGTERM", () => void shutdown("SIGTERM"));
+process.once("SIGINT", () =>
+  void shutdown("SIGINT"),
+);
+
+process.once("SIGTERM", () =>
+  void shutdown("SIGTERM"),
+);
 
 const { token } = getBotConfig();
 
