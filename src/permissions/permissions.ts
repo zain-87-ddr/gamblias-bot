@@ -66,9 +66,6 @@ type PermissionId =
   | "channels.unlock"
   | "management.say"
   | "management.tickets"
-  | "management.logs"
-
-  // Logs
   | "logs.ban"
   | "logs.timeout"
   | "logs.warn"
@@ -76,12 +73,11 @@ type PermissionId =
   | "logs.automod"
   | "logs.member"
   | "logs.message"
-  | "logs.voice"
+  | "logs.vc"
   | "logs.ticket"
   | "logs.channel"
   | "logs.nickname"
-  | "logs.role"
-  | "logs.manage";
+  | "logs.role";
 
 type PermissionsData = {
   [guildId: string]: {
@@ -127,7 +123,6 @@ const BOT_PERMISSIONS: Record<
   management: {
     say: "Say",
     tickets: "Tickets",
-    logs: "Logs",
   },
 
   logs: {
@@ -138,14 +133,38 @@ const BOT_PERMISSIONS: Record<
     automod: "AutoMod Logs",
     member: "Member Logs",
     message: "Message Logs",
-    voice: "Voice Logs",
+    vc: "Voice Logs",
     ticket: "Ticket Logs",
     channel: "Channel Logs",
     nickname: "Nickname Logs",
     role: "Role Logs",
-    manage: "Manage Logs",
   },
 };
+
+const LOG_CATEGORY_NAME = "GAMBLIAS LOGS";
+
+const LOG_PERMISSION_CHANNELS: Record<
+  string,
+  string
+> = {
+  "logs.ban": "ban",
+  "logs.timeout": "timeout",
+  "logs.warn": "warn",
+  "logs.clear": "clear",
+  "logs.automod": "automod",
+  "logs.member": "member",
+  "logs.message": "message",
+  "logs.vc": "vc",
+  "logs.ticket": "ticket",
+  "logs.channel": "channel",
+  "logs.nickname": "nickname",
+  "logs.role": "role",
+};
+
+const LOG_PERMISSION_IDS =
+  Object.keys(
+    LOG_PERMISSION_CHANNELS,
+  ) as PermissionId[];
 
 let data: PermissionsData = {};
 
@@ -350,74 +369,219 @@ export function hasBotPermission(
   return false;
 }
 
-/*
- * تحديد هل العضو يقدر يشوف نوع معين من اللوجز
- */
-export function canViewLog(
-  guildId: string,
-  member: any,
-  logType:
-    | "ban"
-    | "timeout"
-    | "warn"
-    | "clear"
-    | "automod"
-    | "member"
-    | "message"
-    | "voice"
-    | "ticket"
-    | "channel"
-    | "nickname"
-    | "role",
+async function syncLogPermission(
+  guild: Guild,
+  permission: PermissionId,
 ) {
-  if (
-    member.id ===
-    member.guild.ownerId
-  ) {
-    return true;
+  const channelName =
+    LOG_PERMISSION_CHANNELS[
+      permission
+    ];
+
+  if (!channelName) {
+    return;
   }
 
-  return hasBotPermission(
-    guildId,
-    member,
-    `logs.${logType}` as PermissionId,
-  ) ||
-    hasBotPermission(
-      guildId,
-      member,
-      "logs.manage",
+  try {
+    const channels =
+      await guild.channels.fetch();
+
+    const category =
+      channels.find(
+        (channel) =>
+          channel?.type ===
+            4 &&
+          channel.name ===
+            LOG_CATEGORY_NAME,
+      );
+
+    if (!category) {
+      console.error(
+        `[Permissions] Category "${LOG_CATEGORY_NAME}" not found.`,
+      );
+
+      return;
+    }
+
+    const channel =
+      channels.find(
+        (channel) =>
+          channel?.type ===
+            0 &&
+          channel.name ===
+            channelName &&
+          channel.parentId ===
+            category.id,
+      );
+
+    if (!channel) {
+      console.error(
+        `[Permissions] Log channel "${channelName}" not found.`,
+      );
+
+      return;
+    }
+
+    const guildData =
+      getGuildData(guild.id);
+
+    const permissionRoles =
+      Object.entries(
+        guildData.roles,
+      )
+        .filter(
+          ([, roleData]) =>
+            roleData.permissions.includes(
+              permission,
+            ),
+        )
+        .map(
+          ([roleId]) =>
+            guild.roles.cache.get(
+              roleId,
+            ),
+        )
+        .filter(
+          (
+            role,
+          ): role is Role =>
+            !!role &&
+            !role.managed &&
+            role.id !== guild.id,
+        );
+
+    /*
+     * أعلى Role عندها الـLog Permission
+     * هي الحد الفاصل للكتابة.
+     */
+    const highestPermissionRole =
+      permissionRoles.sort(
+        (a, b) =>
+          b.position - a.position,
+      )[0];
+
+    /*
+     * أولًا نشيل إعدادات الـLog القديمة
+     * من الرولات المسجلة في Permissions.
+     */
+    for (const roleId of Object.keys(
+      guildData.roles,
+    )) {
+      const role =
+        guild.roles.cache.get(
+          roleId,
+        );
+
+      if (!role) {
+        continue;
+      }
+
+      if (
+        role.id === guild.id ||
+        role.managed
+      ) {
+        continue;
+      }
+
+      const hasPermission =
+        getRolePermissions(
+          guild.id,
+          role.id,
+        ).includes(
+          permission,
+        );
+
+      if (!hasPermission) {
+        try {
+          await channel.permissionOverwrites.edit(
+            role.id,
+            {
+              ViewChannel: null,
+              SendMessages: null,
+            },
+          );
+        } catch {
+          // تجاهل الرولات اللي مفيش لها Overwrite
+        }
+      }
+    }
+
+    /*
+     * مفيش أي Role عندها Permission:
+     * نخلي القناة مقفولة عن الرولات دي.
+     */
+    if (!highestPermissionRole) {
+      return;
+    }
+
+    /*
+     * كل Role عندها Permission:
+     * تشوف الـLog
+     * وممنوع تكتب.
+     */
+    for (const role of permissionRoles) {
+      await channel.permissionOverwrites.edit(
+        role.id,
+        {
+          ViewChannel: true,
+          SendMessages: false,
+        },
+      );
+    }
+
+    /*
+     * الرولات الأعلى من أعلى Role عندها
+     * Permission للـLog:
+     * تشوف الـLog وتقدر تكتب.
+     */
+    for (const role of guild.roles.cache.values()) {
+      if (
+        role.id === guild.id ||
+        role.managed
+      ) {
+        continue;
+      }
+
+      if (
+        role.position >
+        highestPermissionRole.position
+      ) {
+        await channel.permissionOverwrites.edit(
+          role.id,
+          {
+            ViewChannel: true,
+            SendMessages: true,
+          },
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      `[Permissions] Failed to sync ${permission}:`,
+      error,
     );
-}
-
-/*
- * هل العضو من الرولات المسموح لها بإدارة اللوجز؟
- */
-export function canManageLogs(
-  guildId: string,
-  member: any,
-) {
-  if (
-    member.id ===
-    member.guild.ownerId
-  ) {
-    return true;
   }
-
-  return hasBotPermission(
-    guildId,
-    member,
-    "logs.manage",
-  );
 }
 
-function setRolePermission(
-  guildId: string,
+async function syncAllLogPermissions(
+  guild: Guild,
+) {
+  for (const permission of LOG_PERMISSION_IDS) {
+    await syncLogPermission(
+      guild,
+      permission,
+    );
+  }
+}
+
+async function setRolePermission(
+  guild: Guild,
   roleId: string,
   permission: PermissionId,
   enabled: boolean,
 ) {
   const guildData =
-    getGuildData(guildId);
+    getGuildData(guild.id);
 
   if (!guildData.roles[roleId]) {
     guildData.roles[roleId] = {
@@ -449,13 +613,24 @@ function setRolePermission(
   }
 
   saveData();
+
+  if (
+    permission.startsWith(
+      "logs.",
+    )
+  ) {
+    await syncLogPermission(
+      guild,
+      permission,
+    );
+  }
 }
 
-function enableAll(
-  guildId: string,
+async function enableAll(
+  guild: Guild,
   roleId: string,
 ) {
-  getGuildData(guildId).roles[
+  getGuildData(guild.id).roles[
     roleId
   ] = {
     permissions:
@@ -466,30 +641,42 @@ function enableAll(
   };
 
   saveData();
+
+  await syncAllLogPermissions(
+    guild,
+  );
 }
 
-function disableAll(
-  guildId: string,
+async function disableAll(
+  guild: Guild,
   roleId: string,
 ) {
-  getGuildData(guildId).roles[
+  getGuildData(guild.id).roles[
     roleId
   ] = {
     permissions: [],
   };
 
   saveData();
+
+  await syncAllLogPermissions(
+    guild,
+  );
 }
 
-function resetRole(
-  guildId: string,
+async function resetRole(
+  guild: Guild,
   roleId: string,
 ) {
   delete getGuildData(
-    guildId,
+    guild.id,
   ).roles[roleId];
 
   saveData();
+
+  await syncAllLogPermissions(
+    guild,
+  );
 }
 
 function buildMainPanel(
@@ -648,7 +835,7 @@ function buildCategoryPanel(
             "Management",
           )
           .setDescription(
-            "Say, Tickets, Logs",
+            "Say, Tickets",
           )
           .setEmoji("⚙️")
           .setValue(
@@ -660,7 +847,7 @@ function buildCategoryPanel(
             "Logs",
           )
           .setDescription(
-            "Control access to every log channel",
+            "Manage access to Gamblias log channels",
           )
           .setEmoji("📋")
           .setValue(
@@ -1346,8 +1533,8 @@ export async function handlePermissionsInteraction(
         permission,
       );
 
-    setRolePermission(
-      guild.id,
+    await setRolePermission(
+      guild,
       role.id,
       permission,
       !current,
@@ -1426,8 +1613,8 @@ export async function handlePermissionsInteraction(
       return;
     }
 
-    enableAll(
-      guild.id,
+    await enableAll(
+      guild,
       role.id,
     );
 
@@ -1467,8 +1654,8 @@ export async function handlePermissionsInteraction(
       return;
     }
 
-    disableAll(
-      guild.id,
+    await disableAll(
+      guild,
       role.id,
     );
 
@@ -1508,8 +1695,8 @@ export async function handlePermissionsInteraction(
       return;
     }
 
-    resetRole(
-      guild.id,
+    await resetRole(
+      guild,
       role.id,
     );
 
