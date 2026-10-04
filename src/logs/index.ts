@@ -27,28 +27,70 @@ async function getLogChannel(
   guild: Guild,
   channelName: string,
 ): Promise<GuildTextBasedChannel | null> {
-  const category = guild.channels.cache.find(
-    (channel) =>
-      channel.type === ChannelType.GuildCategory &&
-      channel.name === LOG_CATEGORY_NAME,
-  );
+  try {
+    /*
+     * نعمل Fetch للقنوات من Discord مباشرة
+     * بدل الاعتماد على الـCache فقط.
+     */
 
-  if (!category) {
+    const channels =
+      await guild.channels.fetch();
+
+    const category =
+      channels.find(
+        (channel) =>
+          channel?.type ===
+            ChannelType.GuildCategory &&
+          channel.name ===
+            LOG_CATEGORY_NAME,
+      );
+
+    if (!category) {
+      console.error(
+        `[Logs] Category "${LOG_CATEGORY_NAME}" not found in ${guild.name}`,
+      );
+
+      return null;
+    }
+
+    const channel =
+      channels.find(
+        (channel) =>
+          channel?.type ===
+            ChannelType.GuildText &&
+          channel.name === channelName &&
+          channel.parentId === category.id,
+      );
+
+    if (!channel) {
+      console.error(
+        `[Logs] Channel "${channelName}" not found inside "${LOG_CATEGORY_NAME}"`,
+      );
+
+      return null;
+    }
+
+    if (!channel.isTextBased()) {
+      return null;
+    }
+
+    if (!channel.isSendable()) {
+      console.error(
+        `[Logs] Channel "${channelName}" is not sendable`,
+      );
+
+      return null;
+    }
+
+    return channel as GuildTextBasedChannel;
+  } catch (error) {
+    console.error(
+      `[Logs] Failed to get log channel "${channelName}":`,
+      error,
+    );
+
     return null;
   }
-
-  const channel = guild.channels.cache.find(
-    (channel) =>
-      channel.name === channelName &&
-      channel.parentId === category.id &&
-      channel.isTextBased(),
-  );
-
-  if (!channel || !channel.isSendable()) {
-    return null;
-  }
-
-  return channel as GuildTextBasedChannel;
 }
 
 /* =========================
@@ -483,7 +525,8 @@ export async function sendMessageDeleteLog(
   if (!channel) return;
 
   const content =
-    message.content.trim() || "لا يوجد محتوى نصي";
+    message.content.trim() ||
+    "لا يوجد محتوى نصي";
 
   const embed = new EmbedBuilder()
     .setColor(0xef4444)
@@ -530,10 +573,12 @@ export async function sendMessageEditLog(
   if (!channel) return;
 
   const oldContent =
-    oldMessage.content.trim() || "لا يوجد محتوى نصي";
+    oldMessage.content.trim() ||
+    "لا يوجد محتوى نصي";
 
   const newContent =
-    newMessage.content.trim() || "لا يوجد محتوى نصي";
+    newMessage.content.trim() ||
+    "لا يوجد محتوى نصي";
 
   const embed = new EmbedBuilder()
     .setColor(0xf59e0b)
