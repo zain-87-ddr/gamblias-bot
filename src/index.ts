@@ -27,6 +27,7 @@ import {
   sendVoiceLeaveLog,
   sendVoiceMoveLog,
   sendChannelLog,
+  sendRoleLog,
 } from "./logs/index.ts";
 
 import { registerRemovalSystem } from "./removals/index.ts";
@@ -323,6 +324,154 @@ client.on(
     } catch (error) {
       console.error(
         "Channel update log error:",
+        error,
+      );
+    }
+  },
+);
+
+/*
+ * =========================
+ * Role Logs
+ * =========================
+ */
+
+/*
+ * إنشاء رول
+ */
+
+client.on(Events.GuildRoleCreate, async (role) => {
+  try {
+    await sendRoleLog(
+      role.guild,
+      "تم إنشاء رول",
+      role.toString(),
+      undefined,
+      undefined,
+      undefined,
+      role.name,
+    );
+  } catch (error) {
+    console.error(
+      "Role create log error:",
+      error,
+    );
+  }
+});
+
+/*
+ * حذف رول
+ */
+
+client.on(Events.GuildRoleDelete, async (role) => {
+  try {
+    await sendRoleLog(
+      role.guild,
+      "تم حذف رول",
+      `@${role.name}`,
+      undefined,
+      undefined,
+      role.name,
+    );
+  } catch (error) {
+    console.error(
+      "Role delete log error:",
+      error,
+    );
+  }
+});
+
+/*
+ * تعديل رول
+ */
+
+client.on(
+  Events.GuildRoleUpdate,
+  async (oldRole, newRole) => {
+    try {
+      /*
+       * تغيير اسم الرول
+       */
+
+      if (oldRole.name !== newRole.name) {
+        await sendRoleLog(
+          newRole.guild,
+          "تم تغيير اسم رول",
+          newRole.toString(),
+          undefined,
+          undefined,
+          oldRole.name,
+          newRole.name,
+        );
+      }
+
+      /*
+       * تغيير لون الرول
+       */
+
+      if (oldRole.color !== newRole.color) {
+        const oldColor =
+          oldRole.hexColor;
+
+        const newColor =
+          newRole.hexColor;
+
+        await sendRoleLog(
+          newRole.guild,
+          "تم تغيير لون رول",
+          newRole.toString(),
+          undefined,
+          undefined,
+          oldColor,
+          newColor,
+        );
+      }
+
+      /*
+       * تغيير ظهور الرول منفصلة
+       */
+
+      if (oldRole.hoist !== newRole.hoist) {
+        await sendRoleLog(
+          newRole.guild,
+          "تم تغيير ظهور الرول",
+          newRole.toString(),
+          undefined,
+          undefined,
+          oldRole.hoist
+            ? "مفعّل"
+            : "غير مفعّل",
+          newRole.hoist
+            ? "مفعّل"
+            : "غير مفعّل",
+        );
+      }
+
+      /*
+       * تغيير إمكانية Mention للرول
+       */
+
+      if (
+        oldRole.mentionable !==
+        newRole.mentionable
+      ) {
+        await sendRoleLog(
+          newRole.guild,
+          "تم تغيير Mention للرول",
+          newRole.toString(),
+          undefined,
+          undefined,
+          oldRole.mentionable
+            ? "مفعّل"
+            : "غير مفعّل",
+          newRole.mentionable
+            ? "مفعّل"
+            : "غير مفعّل",
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Role update log error:",
         error,
       );
     }
