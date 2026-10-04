@@ -66,7 +66,22 @@ type PermissionId =
   | "channels.unlock"
   | "management.say"
   | "management.tickets"
-  | "management.logs";
+  | "management.logs"
+
+  // Logs
+  | "logs.ban"
+  | "logs.timeout"
+  | "logs.warn"
+  | "logs.clear"
+  | "logs.automod"
+  | "logs.member"
+  | "logs.message"
+  | "logs.voice"
+  | "logs.ticket"
+  | "logs.channel"
+  | "logs.nickname"
+  | "logs.role"
+  | "logs.manage";
 
 type PermissionsData = {
   [guildId: string]: {
@@ -113,6 +128,22 @@ const BOT_PERMISSIONS: Record<
     say: "Say",
     tickets: "Tickets",
     logs: "Logs",
+  },
+
+  logs: {
+    ban: "Ban Logs",
+    timeout: "Timeout Logs",
+    warn: "Warn Logs",
+    clear: "Clear Logs",
+    automod: "AutoMod Logs",
+    member: "Member Logs",
+    message: "Message Logs",
+    voice: "Voice Logs",
+    ticket: "Ticket Logs",
+    channel: "Channel Logs",
+    nickname: "Nickname Logs",
+    role: "Role Logs",
+    manage: "Manage Logs",
   },
 };
 
@@ -317,6 +348,66 @@ export function hasBotPermission(
   }
 
   return false;
+}
+
+/*
+ * تحديد هل العضو يقدر يشوف نوع معين من اللوجز
+ */
+export function canViewLog(
+  guildId: string,
+  member: any,
+  logType:
+    | "ban"
+    | "timeout"
+    | "warn"
+    | "clear"
+    | "automod"
+    | "member"
+    | "message"
+    | "voice"
+    | "ticket"
+    | "channel"
+    | "nickname"
+    | "role",
+) {
+  if (
+    member.id ===
+    member.guild.ownerId
+  ) {
+    return true;
+  }
+
+  return hasBotPermission(
+    guildId,
+    member,
+    `logs.${logType}` as PermissionId,
+  ) ||
+    hasBotPermission(
+      guildId,
+      member,
+      "logs.manage",
+    );
+}
+
+/*
+ * هل العضو من الرولات المسموح لها بإدارة اللوجز؟
+ */
+export function canManageLogs(
+  guildId: string,
+  member: any,
+) {
+  if (
+    member.id ===
+    member.guild.ownerId
+  ) {
+    return true;
+  }
+
+  return hasBotPermission(
+    guildId,
+    member,
+    "logs.manage",
+  );
 }
 
 function setRolePermission(
@@ -562,6 +653,18 @@ function buildCategoryPanel(
           .setEmoji("⚙️")
           .setValue(
             "management",
+          ),
+
+        new StringSelectMenuOptionBuilder()
+          .setLabel(
+            "Logs",
+          )
+          .setDescription(
+            "Control access to every log channel",
+          )
+          .setEmoji("📋")
+          .setValue(
+            "logs",
           ),
       );
 
