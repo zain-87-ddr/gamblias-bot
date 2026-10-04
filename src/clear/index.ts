@@ -6,6 +6,7 @@ import {
   type Message,
 } from "discord.js";
 import { sendClearLog } from "../logs/index.ts";
+import { hasBotPermission } from "../permissions/permissions.ts";
 
 const CLEAR_COMMAND = ".مسح";
 const DEFAULT_AMOUNT = 5;
@@ -27,8 +28,11 @@ async function handleClear(message: Message) {
   }
 
   if (
-    !message.member?.permissions.has(
-      PermissionFlagsBits.ManageMessages,
+    !message.member ||
+    !hasBotPermission(
+      message.guild.id,
+      message.member,
+      "moderation.clear",
     )
   ) {
     return;
