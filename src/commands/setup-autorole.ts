@@ -7,10 +7,11 @@ import {
 } from "discord.js";
 
 import type { BotCommand } from "../types/command.js";
+import { hasBotPermission } from "../permissions/permissions.ts";
 
 export const setupAutoRoleCommand: BotCommand = {
   data: new SlashCommandBuilder()
-    .setName("setup-autorole")
+    .setName("autorole")
     .setDescription("Set the automatic role for new members.")
     .setDefaultMemberPermissions(
       PermissionFlagsBits.Administrator.toString(),
@@ -22,18 +23,34 @@ export const setupAutoRoleCommand: BotCommand = {
         content: "❌ الأمر ده لازم يتستخدم داخل السيرفر.",
         ephemeral: true,
       });
+
       return;
     }
 
+    if (!interaction.member) {
+      await interaction.reply({
+        content: "❌ مش قادر أحدد العضو.",
+        ephemeral: true,
+      });
+
+      return;
+    }
+
+    const member = interaction.member;
+
     if (
-      !interaction.memberPermissions?.has(
-        PermissionFlagsBits.Administrator,
+      !hasBotPermission(
+        interaction.guild.id,
+        member,
+        "roles.autorole",
       )
     ) {
       await interaction.reply({
-        content: "❌ لازم تكون Administrator لاستخدام الأمر ده.",
+        content:
+          "❌ مش مسموح لك تستخدم Permission **Auto Role**.",
         ephemeral: true,
       });
+
       return;
     }
 
@@ -41,13 +58,15 @@ export const setupAutoRoleCommand: BotCommand = {
       .setCustomId("autorole_select")
       .setPlaceholder("🎭 اختار الرول اللي هتكون Auto Role");
 
-    const row = new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
-      menu,
-    );
+    const row =
+      new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
+        menu,
+      );
 
     await interaction.reply({
       content:
-        "⚙️ **إعداد Auto Role**\n\nاختار الرول اللي عايز البوت يديها تلقائيًا لأي عضو جديد يدخل السيرفر.",
+        "⚙️ **إعداد Auto Role**\n\n" +
+        "اختار الرول اللي عايز البوت يديها تلقائيًا لأي عضو جديد يدخل السيرفر.",
       components: [row],
       ephemeral: true,
     });
