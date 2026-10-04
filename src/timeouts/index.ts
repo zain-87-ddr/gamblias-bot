@@ -177,10 +177,6 @@ async function handleTimeout(message: Message) {
 
   const moderator = message.member;
 
-  /*
-   * Permission Manager
-   * Owner bypass موجود داخل hasBotPermission.
-   */
   if (
     !hasBotPermission(
       message.guild.id,
@@ -191,14 +187,6 @@ async function handleTimeout(message: Message) {
     await reply(
       message,
       "❌ مش مسموح لك تستخدم Permission **Timeout**.",
-    );
-    return;
-  }
-
-  if (!moderator.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-    await reply(
-      message,
-      "ليس لديك الصلاحية اللازمة لاستخدام أمر التايم.",
     );
     return;
   }
