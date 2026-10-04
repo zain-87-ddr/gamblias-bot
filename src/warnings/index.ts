@@ -164,6 +164,11 @@ async function handleWarning(message: Message) {
 
   const moderator = message.member;
 
+  /*
+   * Gamblias Permission
+   * العضو محتاج Permission من نظام Gamblias فقط.
+   * مش محتاج Moderate Members من Discord.
+   */
   if (
     !hasBotPermission(
       message.guild.id,
@@ -174,18 +179,6 @@ async function handleWarning(message: Message) {
     await reply(
       message,
       "❌ مش مسموح لك تستخدم Permission **Warn**.",
-    );
-    return;
-  }
-
-  if (
-    !moderator.permissions.has(
-      PermissionFlagsBits.ModerateMembers,
-    )
-  ) {
-    await reply(
-      message,
-      "ليس لديك الصلاحية اللازمة لاستخدام أمر التحذير.",
     );
     return;
   }
@@ -216,6 +209,11 @@ async function handleWarning(message: Message) {
     return;
   }
 
+  /*
+   * Hierarchy الخاصة بالـModerator
+   * مش محتاج Discord Permission هنا،
+   * لكن لسه ممنوع يتعامل مع عضو أعلى منه.
+   */
   if (!canModerate(moderator, target)) {
     await reply(
       message,
@@ -224,6 +222,9 @@ async function handleWarning(message: Message) {
     return;
   }
 
+  /*
+   * صلاحيات البوت نفسه من Discord.
+   */
   const botMember =
     message.guild.members.me ??
     (await message.guild.members.fetchMe());
