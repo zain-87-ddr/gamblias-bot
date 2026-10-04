@@ -6,6 +6,7 @@ import {
   type Message,
   type Role,
 } from "discord.js";
+import { hasBotPermission } from "../permissions/permissions.ts";
 
 const ROLE_COMMAND = ".رول";
 const UNROLE_COMMAND = ".انرول";
@@ -108,7 +109,7 @@ async function handleRoleCommand(
     return;
   }
 
-  if (!message.guild) {
+  if (!message.guild || !message.member) {
     return;
   }
 
@@ -120,14 +121,26 @@ async function handleRoleCommand(
     return;
   }
 
+  const permission =
+    action === "add"
+      ? "roles.give"
+      : "roles.remove";
+
+  const permissionName =
+    action === "add"
+      ? "Give Role"
+      : "Remove Role";
+
   if (
-    !message.member?.permissions.has(
-      PermissionFlagsBits.Administrator,
+    !hasBotPermission(
+      message.guild.id,
+      message.member,
+      permission,
     )
   ) {
     await message.reply({
       content:
-        "❌ لازم تكون Administrator عشان تستخدم الأمر ده.",
+        `❌ مش مسموح لك تستخدم Permission **${permissionName}**.`,
     });
 
     return;
