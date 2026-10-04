@@ -4,6 +4,7 @@ import {
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
 } from "discord.js";
+
 import type { BotCommand } from "../types/command.ts";
 
 export const setupLogSystemCommand: BotCommand = {
@@ -17,6 +18,7 @@ export const setupLogSystemCommand: BotCommand = {
         content: "هذا الأمر يعمل داخل السيرفر فقط.",
         ephemeral: true,
       });
+
       return;
     }
 
@@ -29,10 +31,13 @@ export const setupLogSystemCommand: BotCommand = {
         content: "لازم تكون Administrator لاستخدام هذا الأمر.",
         ephemeral: true,
       });
+
       return;
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({
+      ephemeral: true,
+    });
 
     const guild = interaction.guild;
 
@@ -50,14 +55,18 @@ export const setupLogSystemCommand: BotCommand = {
       }));
 
     const logChannels = [
-      "ban-logs",
-      "timeout-logs",
-      "warn-logs",
-      "clear-logs",
-      "automod-logs",
-      "member-logs",
-      "message-logs",
-      "voice-logs",
+      "ban",
+      "timeout",
+      "warn",
+      "clear",
+      "automod",
+      "member",
+      "message",
+      "vc",
+      "ticket",
+      "channel",
+      "nickname",
+      "role",
     ];
 
     let created = 0;
@@ -84,7 +93,9 @@ export const setupLogSystemCommand: BotCommand = {
     }
 
     await interaction.editReply(
-      `تم إنشاء نظام اللوج بنجاح.\n\nCategory: \`GAMBLIAS LOGS\`\nالقنوات الجديدة: \`${created}\``,
+      `تم إنشاء نظام اللوج بنجاح.\n\n` +
+        `Category: \`GAMBLIAS LOGS\`\n` +
+        `القنوات الجديدة: \`${created}\``,
     );
   },
 };
