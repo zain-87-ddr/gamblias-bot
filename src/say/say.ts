@@ -4,6 +4,8 @@ import {
   type Message,
 } from "discord.js";
 
+import { hasBotPermission } from "../permissions/permissions.ts";
+
 const SAY_COMMAND = "ساي";
 
 export function registerSaySystem(client: Client) {
@@ -30,14 +32,20 @@ export function registerSaySystem(client: Client) {
         return;
       }
 
+      if (!message.member) {
+        return;
+      }
+
       if (
-        !message.member?.permissions.has(
-          PermissionFlagsBits.ManageMessages,
+        !hasBotPermission(
+          message.guild.id,
+          message.member,
+          "management.say",
         )
       ) {
         await message.reply({
           content:
-            "❌ لازم تكون إداري وعندك صلاحية **Manage Messages** عشان تستخدم الأمر ده.",
+            "❌ مش مسموح لك تستخدم Permission **Say**.",
         });
 
         return;
@@ -65,8 +73,19 @@ export function registerSaySystem(client: Client) {
         return;
       }
 
+      const botMember = message.guild.members.me;
+
+      if (!botMember) {
+        await message.reply({
+          content:
+            "❌ مش قادر أحدد البوت داخل السيرفر.",
+        });
+
+        return;
+      }
+
       if (
-        !message.guild.members.me?.permissions.has(
+        !botMember.permissions.has(
           PermissionFlagsBits.ManageMessages,
         )
       ) {
