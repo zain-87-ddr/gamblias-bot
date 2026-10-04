@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 
 import { hasBotPermission } from "../permissions/permissions.ts";
+import { sendNicknameLog } from "../logs/index.ts";
 
 const NICKNAME_COMMAND = "n";
 
@@ -189,6 +190,15 @@ export function registerNicknameSystem(client: Client) {
       await targetMember.setNickname(
         nickname,
         `Changed by ${message.author.tag}`,
+      );
+
+      // Nickname Log
+      await sendNicknameLog(
+        message.guild,
+        targetMember.toString(),
+        oldNickname,
+        nickname,
+        message.member.toString(),
       );
 
       const embed = new EmbedBuilder()
