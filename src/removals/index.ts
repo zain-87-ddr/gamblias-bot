@@ -8,6 +8,7 @@ import {
 } from "discord.js";
 import { sendTemporaryReply } from "../cleanup/index.ts";
 import { removeWarning } from "../warnings/store.ts";
+import { hasBotPermission } from "../permissions/permissions.ts";
 
 const UNWARN_COMMAND = "انورن";
 const UNTIMEOUT_COMMAND = "انتايم";
@@ -52,7 +53,11 @@ function noWarningsEmbed(member: GuildMember) {
   return new EmbedBuilder()
     .setColor(0x3b82f6)
     .setTitle("ℹ️ لا يوجد تحذيرات لإزالتها")
-    .addFields({ name: "👤 العضو", value: member.toString(), inline: false })
+    .addFields({
+      name: "👤 العضو",
+      value: member.toString(),
+      inline: false,
+    })
     .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }))
     .setTimestamp();
 }
@@ -73,7 +78,11 @@ function noTimeoutEmbed(member: GuildMember) {
   return new EmbedBuilder()
     .setColor(0x3b82f6)
     .setTitle("ℹ️ لا يوجد تايم أوت لإزالته")
-    .addFields({ name: "👤 العضو", value: member.toString(), inline: false })
+    .addFields({
+      name: "👤 العضو",
+      value: member.toString(),
+      inline: false,
+    })
     .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }))
     .setTimestamp();
 }
@@ -83,11 +92,13 @@ async function resolveTarget(
   input: string,
 ): Promise<RemovalTarget> {
   const guild = message.guild;
+
   if (!guild) {
     return { target: null, reason: input };
   }
 
   const mention = input.match(/^<@!?(\d+)>/);
+
   if (mention) {
     try {
       return {
@@ -103,6 +114,7 @@ async function resolveTarget(
   if (message.reference?.messageId) {
     try {
       const referencedMessage = await message.fetchReference();
+
       return {
         target: await guild.members.fetch(referencedMessage.author.id),
         reason: input,
@@ -184,15 +196,22 @@ async function handleUnwarn(message: Message) {
     return;
   }
 
-  if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+  if (
+    !hasBotPermission(
+      message.guild.id,
+      message.member,
+      "moderation.unwarn",
+    )
+  ) {
     await reply(
       message,
-      "ليس لديك الصلاحية اللازمة لاستخدام أمر إزالة التحذير.",
+      "❌ مش مسموح لك تستخدم Permission **Unwarn**.",
     );
     return;
   }
 
   const input = content.slice(UNWARN_COMMAND.length).trim();
+
   const resolved = await resolveAndValidateTarget(
     message,
     input,
@@ -244,15 +263,22 @@ async function handleUntimeout(message: Message) {
     return;
   }
 
-  if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+  if (
+    !hasBotPermission(
+      message.guild.id,
+      message.member,
+      "moderation.untimeout",
+    )
+  ) {
     await reply(
       message,
-      "ليس لديك الصلاحية اللازمة لاستخدام أمر إزالة التايم.",
+      "❌ مش مسموح لك تستخدم Permission **Untimeout**.",
     );
     return;
   }
 
   const input = content.slice(UNTIMEOUT_COMMAND.length).trim();
+
   const resolved = await resolveAndValidateTarget(
     message,
     input,
