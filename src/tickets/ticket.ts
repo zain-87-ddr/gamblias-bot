@@ -13,6 +13,8 @@ import {
   type TextChannel,
 } from "discord.js";
 
+import { sendTicketLog } from "../logs/index.ts";
+
 export const TICKET_PANEL_BUTTON = "ticket_select_type";
 export const TICKET_TYPE_MENU = "ticket_type_menu";
 
@@ -52,7 +54,8 @@ export async function sendTicketPanel(channel: TextChannel) {
     .setEmoji("🎫")
     .setStyle(ButtonStyle.Primary);
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+  const row =
+    new ActionRowBuilder<ButtonBuilder>().addComponents(button);
 
   await channel.send({
     embeds: [embed],
@@ -96,7 +99,9 @@ export function createTicketTypeMenu() {
         .setValue("inquiry"),
     );
 
-  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    menu,
+  );
 }
 
 export function createTicketButtons() {
@@ -132,7 +137,9 @@ export function createAddMemberMenu() {
     .setMinValues(1)
     .setMaxValues(1);
 
-  return new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(menu);
+  return new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(
+    menu,
+  );
 }
 
 export async function createTicket(
@@ -211,7 +218,12 @@ export async function createTicket(
         "➕ يمكن للإدارة إضافة عضو آخر للتكت عند الحاجة.\n" +
         "🔒 يمكن للإدارة قفل التكت بعد انتهاء الموضوع.",
     )
-    .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }))
+    .setThumbnail(
+      member.displayAvatarURL({
+        extension: "png",
+        size: 256,
+      }),
+    )
     .setTimestamp();
 
   await channel.send({
@@ -219,6 +231,16 @@ export async function createTicket(
     embeds: [embed],
     components: [createTicketButtons()],
   });
+
+  // Ticket Create Log
+  await sendTicketLog(
+    guild,
+    "تم إنشاء تكت",
+    `${channel} (\`${channel.id}\`)`,
+    member.toString(),
+    undefined,
+    `النوع: ${ticketTypeName}`,
+  );
 
   return channel;
 }
