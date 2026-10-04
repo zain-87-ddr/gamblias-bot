@@ -9,14 +9,18 @@ import {
 const LOG_CATEGORY_NAME = "GAMBLIAS LOGS";
 
 const LOG_CHANNEL_NAMES = {
-  ban: "ban-logs",
-  timeout: "timeout-logs",
-  warn: "warn-logs",
-  clear: "clear-logs",
-  automod: "automod-logs",
-  member: "member-logs",
-  message: "message-logs",
-  voice: "voice-logs",
+  ban: "ban",
+  timeout: "timeout",
+  warn: "warn",
+  clear: "clear",
+  automod: "automod",
+  member: "member",
+  message: "message",
+  voice: "vc",
+  ticket: "ticket",
+  channel: "channel",
+  nickname: "nickname",
+  role: "role",
 } as const;
 
 async function getLogChannel(
@@ -47,6 +51,10 @@ async function getLogChannel(
   return channel as GuildTextBasedChannel;
 }
 
+/* =========================
+   Ban
+   ========================= */
+
 export async function sendBanLog(
   guild: Guild,
   memberName: string,
@@ -60,9 +68,7 @@ export async function sendBanLog(
     LOG_CHANNEL_NAMES.ban,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0xef4444)
@@ -96,6 +102,10 @@ export async function sendBanLog(
   });
 }
 
+/* =========================
+   Timeout
+   ========================= */
+
 export async function sendTimeoutLog(
   guild: Guild,
   memberName: string,
@@ -110,9 +120,7 @@ export async function sendTimeoutLog(
     LOG_CHANNEL_NAMES.timeout,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
@@ -151,6 +159,10 @@ export async function sendTimeoutLog(
   });
 }
 
+/* =========================
+   Warn
+   ========================= */
+
 export async function sendWarnLog(
   guild: Guild,
   memberName: string,
@@ -165,9 +177,7 @@ export async function sendWarnLog(
     LOG_CHANNEL_NAMES.warn,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0xf59e0b)
@@ -218,9 +228,7 @@ export async function sendMaxWarningLog(
     LOG_CHANNEL_NAMES.warn,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0xef4444)
@@ -259,6 +267,10 @@ export async function sendMaxWarningLog(
   });
 }
 
+/* =========================
+   Clear
+   ========================= */
+
 export async function sendClearLog(
   guild: Guild,
   moderatorMention: string,
@@ -271,9 +283,7 @@ export async function sendClearLog(
     LOG_CHANNEL_NAMES.clear,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
@@ -310,6 +320,10 @@ export async function sendClearLog(
   });
 }
 
+/* =========================
+   AutoMod
+   ========================= */
+
 export async function sendAutoModLog(
   guild: Guild,
   memberMention: string,
@@ -323,9 +337,7 @@ export async function sendAutoModLog(
     LOG_CHANNEL_NAMES.automod,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0x8b5cf6)
@@ -364,6 +376,10 @@ export async function sendAutoModLog(
   });
 }
 
+/* =========================
+   Member
+   ========================= */
+
 export async function sendMemberJoinLog(
   guild: Guild,
   memberName: string,
@@ -377,9 +393,7 @@ export async function sendMemberJoinLog(
     LOG_CHANNEL_NAMES.member,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0x22c55e)
@@ -424,9 +438,7 @@ export async function sendMemberLeaveLog(
     LOG_CHANNEL_NAMES.member,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0xef4444)
@@ -455,6 +467,10 @@ export async function sendMemberLeaveLog(
   });
 }
 
+/* =========================
+   Message
+   ========================= */
+
 export async function sendMessageDeleteLog(
   guild: Guild,
   message: Message,
@@ -464,11 +480,10 @@ export async function sendMessageDeleteLog(
     LOG_CHANNEL_NAMES.message,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
-  const content = message.content.trim() || "لا يوجد محتوى نصي";
+  const content =
+    message.content.trim() || "لا يوجد محتوى نصي";
 
   const embed = new EmbedBuilder()
     .setColor(0xef4444)
@@ -512,9 +527,7 @@ export async function sendMessageEditLog(
     LOG_CHANNEL_NAMES.message,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const oldContent =
     oldMessage.content.trim() || "لا يوجد محتوى نصي";
@@ -559,6 +572,10 @@ export async function sendMessageEditLog(
   });
 }
 
+/* =========================
+   VC
+   ========================= */
+
 export async function sendVoiceJoinLog(
   guild: Guild,
   memberMention: string,
@@ -570,9 +587,7 @@ export async function sendVoiceJoinLog(
     LOG_CHANNEL_NAMES.voice,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0x22c55e)
@@ -612,9 +627,7 @@ export async function sendVoiceLeaveLog(
     LOG_CHANNEL_NAMES.voice,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0xef4444)
@@ -655,9 +668,7 @@ export async function sendVoiceMoveLog(
     LOG_CHANNEL_NAMES.voice,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0xf59e0b)
@@ -702,9 +713,7 @@ export async function sendVoiceDisconnectLog(
     LOG_CHANNEL_NAMES.voice,
   );
 
-  if (!channel) {
-    return;
-  }
+  if (!channel) return;
 
   const embed = new EmbedBuilder()
     .setColor(0xef4444)
@@ -727,6 +736,242 @@ export async function sendVoiceDisconnectLog(
       },
     )
     .setTimestamp();
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
+
+/* =========================
+   Ticket
+   ========================= */
+
+export async function sendTicketLog(
+  guild: Guild,
+  action: string,
+  ticketChannel: string,
+  userMention?: string,
+  moderatorMention?: string,
+  details?: string,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.ticket,
+  );
+
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle(`🎫 ${action}`)
+    .addFields({
+      name: "🎫 التكت",
+      value: ticketChannel,
+      inline: true,
+    })
+    .setTimestamp();
+
+  if (userMention) {
+    embed.addFields({
+      name: "👤 العضو",
+      value: userMention,
+      inline: true,
+    });
+  }
+
+  if (moderatorMention) {
+    embed.addFields({
+      name: "🛡️ بواسطة",
+      value: moderatorMention,
+      inline: true,
+    });
+  }
+
+  if (details) {
+    embed.addFields({
+      name: "📝 التفاصيل",
+      value: details.slice(0, 1024),
+      inline: false,
+    });
+  }
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
+
+/* =========================
+   Channel
+   ========================= */
+
+export async function sendChannelLog(
+  guild: Guild,
+  action: string,
+  channelMention: string,
+  oldValue?: string,
+  newValue?: string,
+  moderatorMention?: string,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.channel,
+  );
+
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle(`📢 ${action}`)
+    .addFields({
+      name: "📍 القناة",
+      value: channelMention,
+      inline: true,
+    })
+    .setTimestamp();
+
+  if (oldValue !== undefined) {
+    embed.addFields({
+      name: "📄 القديم",
+      value: oldValue.slice(0, 1024),
+      inline: true,
+    });
+  }
+
+  if (newValue !== undefined) {
+    embed.addFields({
+      name: "📝 الجديد",
+      value: newValue.slice(0, 1024),
+      inline: true,
+    });
+  }
+
+  if (moderatorMention) {
+    embed.addFields({
+      name: "🛡️ بواسطة",
+      value: moderatorMention,
+      inline: false,
+    });
+  }
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
+
+/* =========================
+   Nickname
+   ========================= */
+
+export async function sendNicknameLog(
+  guild: Guild,
+  memberMention: string,
+  oldNickname: string,
+  newNickname: string,
+  moderatorMention?: string,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.nickname,
+  );
+
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle("✏️ تم تغيير Nickname")
+    .addFields(
+      {
+        name: "👤 العضو",
+        value: memberMention,
+        inline: true,
+      },
+      {
+        name: "📄 القديم",
+        value: oldNickname,
+        inline: true,
+      },
+      {
+        name: "📝 الجديد",
+        value: newNickname,
+        inline: true,
+      },
+    )
+    .setTimestamp();
+
+  if (moderatorMention) {
+    embed.addFields({
+      name: "🛡️ بواسطة",
+      value: moderatorMention,
+      inline: false,
+    });
+  }
+
+  await channel.send({
+    embeds: [embed],
+  });
+}
+
+/* =========================
+   Role
+   ========================= */
+
+export async function sendRoleLog(
+  guild: Guild,
+  action: string,
+  roleMention: string,
+  memberMention?: string,
+  moderatorMention?: string,
+  oldValue?: string,
+  newValue?: string,
+) {
+  const channel = await getLogChannel(
+    guild,
+    LOG_CHANNEL_NAMES.role,
+  );
+
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle(`🎭 ${action}`)
+    .addFields({
+      name: "🎭 الرول",
+      value: roleMention,
+      inline: true,
+    })
+    .setTimestamp();
+
+  if (memberMention) {
+    embed.addFields({
+      name: "👤 العضو",
+      value: memberMention,
+      inline: true,
+    });
+  }
+
+  if (moderatorMention) {
+    embed.addFields({
+      name: "🛡️ بواسطة",
+      value: moderatorMention,
+      inline: true,
+    });
+  }
+
+  if (oldValue !== undefined) {
+    embed.addFields({
+      name: "📄 القديم",
+      value: oldValue.slice(0, 1024),
+      inline: true,
+    });
+  }
+
+  if (newValue !== undefined) {
+    embed.addFields({
+      name: "📝 الجديد",
+      value: newValue.slice(0, 1024),
+      inline: true,
+    });
+  }
 
   await channel.send({
     embeds: [embed],
