@@ -3,12 +3,13 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  PermissionFlagsBits,
   type ButtonInteraction,
   type GuildMember,
   type StringSelectMenuInteraction,
   type UserSelectMenuInteraction,
 } from "discord.js";
+
+import { hasBotPermission } from "../permissions/permissions.ts";
 
 import {
   TICKET_PANEL_BUTTON,
@@ -30,11 +31,17 @@ const TICKET_TYPES: Record<string, string> = {
   inquiry: "❓ استفسار",
 };
 
-function isStaff(member: GuildMember) {
-  return member.permissions.has(PermissionFlagsBits.ManageChannels);
+function hasTicketPermission(member: GuildMember) {
+  return hasBotPermission(
+    member.guild.id,
+    member,
+    "management.tickets",
+  );
 }
 
-export async function handleTicketButton(interaction: ButtonInteraction) {
+export async function handleTicketButton(
+  interaction: ButtonInteraction,
+) {
   if (!interaction.guild) return;
 
   if (interaction.customId === TICKET_PANEL_BUTTON) {
@@ -47,9 +54,10 @@ export async function handleTicketButton(interaction: ButtonInteraction) {
     return;
   }
 
-  if (!isStaff(interaction.member as GuildMember)) {
+  if (!hasTicketPermission(interaction.member as GuildMember)) {
     await interaction.reply({
-      content: "❌ معندكش صلاحية تستخدم الزر ده.",
+      content:
+        "❌ مش مسموح لك تستخدم Permission **Tickets**.",
       ephemeral: true,
     });
 
@@ -176,6 +184,7 @@ export async function handleTicketSelectMenu(
         content: "❌ نوع التكت غير معروف.",
         ephemeral: true,
       });
+
       return;
     }
 
@@ -208,11 +217,17 @@ export async function handleTicketSelectMenu(
   }
 
   if (interaction.customId === TICKET_ADD_MEMBER_MENU) {
-    if (!isStaff(interaction.member as GuildMember)) {
+    if (
+      !hasTicketPermission(
+        interaction.member as GuildMember,
+      )
+    ) {
       await interaction.update({
-        content: "❌ معندكش صلاحية تضيف أعضاء للتكت.",
+        content:
+          "❌ مش مسموح لك تستخدم Permission **Tickets**.",
         components: [],
       });
+
       return;
     }
 
@@ -223,6 +238,7 @@ export async function handleTicketSelectMenu(
         content: "❌ مش قادر أوصل للتكت.",
         components: [],
       });
+
       return;
     }
 
