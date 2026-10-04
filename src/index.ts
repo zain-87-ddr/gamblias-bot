@@ -2,7 +2,6 @@ import {
   Client,
   Events,
   GatewayIntentBits,
-  PermissionFlagsBits,
   type ChatInputCommandInteraction,
 } from "discord.js";
 
@@ -47,6 +46,7 @@ import {
 
 import {
   handlePermissionsInteraction,
+  hasBotPermission,
 } from "./permissions/permissions.ts";
 
 const client = new Client({
@@ -336,18 +336,32 @@ client.on(Events.InteractionCreate, async (interaction) => {
           content: "❌ الأمر ده لازم يتستخدم داخل السيرفر.",
           ephemeral: true,
         });
+
+        return;
+      }
+
+      if (!interaction.member) {
+        await interaction.reply({
+          content: "❌ مش قادر أحدد العضو.",
+          ephemeral: true,
+        });
+
         return;
       }
 
       if (
-        !interaction.memberPermissions?.has(
-          PermissionFlagsBits.Administrator,
+        !hasBotPermission(
+          interaction.guild.id,
+          interaction.member,
+          "roles.autorole",
         )
       ) {
         await interaction.reply({
-          content: "❌ لازم تكون Administrator لاستخدام الإعداد ده.",
+          content:
+            "❌ مش مسموح لك تستخدم Permission **Auto Role**.",
           ephemeral: true,
         });
+
         return;
       }
 
@@ -359,6 +373,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           content: "❌ مش قادر ألاقي الرول دي.",
           components: [],
         });
+
         return;
       }
 
@@ -369,6 +384,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           content: "❌ مش قادر أحدد صلاحيات البوت.",
           components: [],
         });
+
         return;
       }
 
@@ -377,14 +393,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
           content: "❌ مينفعش تستخدم @everyone كـAuto Role.",
           components: [],
         });
+
         return;
       }
 
       if (role.managed) {
         await interaction.update({
-          content: "❌ الرول دي Managed ومينفعش البوت يديها للأعضاء.",
+          content:
+            "❌ الرول دي Managed ومينفعش البوت يديها للأعضاء.",
           components: [],
         });
+
         return;
       }
 
@@ -394,6 +413,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             "❌ البوت مينفعش يدي الرول دي لأن الرول أعلى من أو مساوية لأعلى رول عند البوت.",
           components: [],
         });
+
         return;
       }
 
