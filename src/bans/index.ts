@@ -1,3 +1,4 @@
+
 import {
   EmbedBuilder,
   Events,
@@ -9,6 +10,7 @@ import {
 import { sendTemporaryReply } from "../cleanup/index.ts";
 import { sendBanLog } from "../logs/index.ts";
 import { hasBotPermission } from "../permissions/permissions.ts";
+import { applyEmbedStyle } from "../embeds/store.ts";
 
 const BAN_COMMAND = "بان";
 const UNBAN_COMMAND = "انبان";
@@ -270,15 +272,15 @@ async function handleBan(message: Message) {
     reason,
   );
 
+  const embed = applyEmbedStyle(
+    message.guild.id,
+    "ban",
+    banEmbed(target, moderator, reason),
+  );
+
   await channel.send({
     content: target.toString(),
-    embeds: [
-      banEmbed(
-        target,
-        moderator,
-        reason,
-      ),
-    ],
+    embeds: [embed],
   });
 }
 
@@ -379,14 +381,18 @@ async function handleUnban(message: Message) {
     "إلغاء الحظر",
   );
 
+  const embed = applyEmbedStyle(
+    message.guild.id,
+    "unban",
+    unbanEmbed(
+      ban.user.username,
+      userId,
+      moderator,
+    ),
+  );
+
   await channel.send({
-    embeds: [
-      unbanEmbed(
-        ban.user.username,
-        userId,
-        moderator,
-      ),
-    ],
+    embeds: [embed],
   });
 }
 
