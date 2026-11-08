@@ -1,3 +1,4 @@
+
 import {
   EmbedBuilder,
   Events,
@@ -15,65 +16,36 @@ const MAX_AMOUNT = 200;
 const CONFIRMATION_DELETE_MS = 10_000;
 
 async function handleClear(message: Message) {
-  if (!message.guild || message.author.bot) {
-    return;
-  }
+  if (!message.guild || message.author.bot) return;
 
   const content = message.content.trim();
 
-  if (
-    content !== CLEAR_COMMAND &&
-    !content.startsWith(`${CLEAR_COMMAND} `)
-  ) {
+  if (content !== CLEAR_COMMAND && !content.startsWith(`${CLEAR_COMMAND} `)) {
     return;
   }
 
   if (
     !message.member ||
-    !hasBotPermission(
-      message.guild.id,
-      message.member,
-      "moderation.clear",
-    )
-  ) {
-    return;
-  }
+    !hasBotPermission(message.guild.id, message.member, "moderation.clear")
+  ) return;
 
-  const botMember =
-    message.guild.members.me ??
-    (await message.guild.members.fetchMe());
+  const botMember = message.guild.members.me ?? await message.guild.members.fetchMe();
 
-  if (
-    !botMember.permissions.has(
-      PermissionFlagsBits.ManageMessages,
-    )
-  ) {
-    return;
-  }
+  if (!botMember.permissions.has(PermissionFlagsBits.ManageMessages)) return;
 
   const input = content.slice(CLEAR_COMMAND.length).trim();
-
   let amount = DEFAULT_AMOUNT;
 
   if (input) {
     const parsedAmount = Number(input);
-
-    if (
-      !Number.isInteger(parsedAmount) ||
-      parsedAmount < 1 ||
-      parsedAmount > MAX_AMOUNT
-    ) {
+    if (!Number.isInteger(parsedAmount) || parsedAmount < 1 || parsedAmount > MAX_AMOUNT) {
       return;
     }
-
     amount = parsedAmount;
   }
 
   const channel = message.channel;
-
-  if (!channel.isTextBased() || !("messages" in channel)) {
-    return;
-  }
+  if (!channel.isTextBased() || !("messages" in channel)) return;
 
   let deleted = 0;
   let targetUserId: string | undefined;
@@ -83,7 +55,6 @@ async function handleClear(message: Message) {
 
   if (message.reference?.messageId) {
     const referencedMessage = await message.fetchReference();
-
     targetUserId = referencedMessage.author.id;
     targetUserMention = referencedMessage.author.toString();
 
@@ -95,68 +66,36 @@ async function handleClear(message: Message) {
         ...(lastMessageId ? { before: lastMessageId } : {}),
       });
 
-      if (messages.size === 0) {
-        break;
-      }
+      if (messages.size === 0) break;
 
-      const targetMessages = messages.filter(
-        (msg) => msg.author.id === targetUserId,
-      );
+      const targetMessages = messages.filter((msg) => msg.author.id === targetUserId);
 
       if (targetMessages.size > 0) {
         const remaining = amount - deleted;
-
-        const selected = [
-          ...targetMessages.values(),
-        ].slice(0, Math.min(remaining, 100));
-
-        const result = await channel.bulkDelete(
-          selected,
-          true,
-        );
-
+        const selected = [...targetMessages.values()].slice(0, Math.min(remaining, 100));
+        const result = await channel.bulkDelete(selected, true);
         deleted += result.size;
       }
 
       lastMessageId = messages.last()?.id;
-
-      if (!lastMessageId || messages.size < 100) {
-        break;
-      }
+      if (!lastMessageId || messages.size < 100) break;
     }
   } else {
     while (deleted < amount) {
       const remaining = amount - deleted;
       const batchSize = Math.min(remaining, 100);
+      const messages = await channel.messages.fetch({ limit: batchSize });
 
-      const messages = await channel.messages.fetch({
-        limit: batchSize,
-      });
+      if (messages.size === 0) break;
 
-      if (messages.size === 0) {
-        break;
-      }
-
-      const result = await channel.bulkDelete(
-        messages,
-        true,
-      );
-
+      const result = await channel.bulkDelete(messages, true);
       deleted += result.size;
 
-      if (messages.size < batchSize) {
-        break;
-      }
-
-      if (result.size === 0) {
-        break;
-      }
+      if (messages.size < batchSize || result.size === 0) break;
     }
   }
 
-  if (deleted === 0) {
-    return;
-  }
+  if (deleted === 0) return;
 
   await sendClearLog(
     message.guild,
@@ -170,16 +109,8 @@ async function handleClear(message: Message) {
     .setColor(0x5865f2)
     .setTitle("🧹 تم تنظيف المحادثة")
     .addFields(
-      {
-        name: "🛡️ بواسطة",
-        value: message.author.toString(),
-        inline: true,
-      },
-      {
-        name: "🗑️ عدد الرسائل",
-        value: `\`${deleted}\``,
-        inline: true,
-      },
+      { name: "🛡️ بواسطة", value: message.author.toString(), inline: true },
+      { name: "🗑️ عدد الرسائل", value: `\`${deleted}\``, inline: true },
     )
     .setTimestamp();
 
@@ -195,11 +126,14 @@ async function handleClear(message: Message) {
     message.guild.id,
     "clear",
     embed,
+    {
+      amount: deleted,
+      moderator: message.author.toString(),
+      channel: channel.toString(),
+    },
   );
 
-  const confirmation = await channel.send({
-    embeds: [styledEmbed],
-  });
+  const confirmation = await channel.send({ embeds: [styledEmbed] });
 
   setTimeout(() => {
     void confirmation.delete().catch(() => {});
