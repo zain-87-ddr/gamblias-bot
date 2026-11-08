@@ -1,4 +1,3 @@
-
 import {
   mkdirSync,
   readFileSync,
@@ -22,13 +21,28 @@ export type EmbedTemplate =
   | "ticket-panel"
   | "ticket-open";
 
+export type EmbedFieldStyle = {
+  name: string;
+  value: string;
+  inline: boolean;
+};
+
 export type EmbedStyle = {
   title?: string;
   description?: string;
-  footer?: string;
+  author?: {
+    name: string;
+    url?: string;
+    iconURL?: string;
+  };
+  footer?: {
+    text: string;
+    iconURL?: string;
+  };
   image?: string;
   thumbnail?: string;
   color?: number;
+  fields?: EmbedFieldStyle[];
 };
 
 type GuildStyles = Record<string, EmbedStyle>;
@@ -86,8 +100,31 @@ export function applyEmbedStyle(
     embed.setDescription(style.description || null);
   }
 
+  if (style.author !== undefined) {
+    embed.setAuthor(
+      style.author.name
+        ? {
+            name: style.author.name,
+            ...(style.author.url ? { url: style.author.url } : {}),
+            ...(style.author.iconURL
+              ? { iconURL: style.author.iconURL }
+              : {}),
+          }
+        : null,
+    );
+  }
+
   if (style.footer !== undefined) {
-    embed.setFooter(style.footer ? { text: style.footer } : null);
+    embed.setFooter(
+      style.footer.text
+        ? {
+            text: style.footer.text,
+            ...(style.footer.iconURL
+              ? { iconURL: style.footer.iconURL }
+              : {}),
+          }
+        : null,
+    );
   }
 
   if (style.image !== undefined) {
@@ -100,6 +137,10 @@ export function applyEmbedStyle(
 
   if (style.color !== undefined) {
     embed.setColor(style.color);
+  }
+
+  if (style.fields?.length) {
+    embed.addFields(...style.fields);
   }
 
   return embed;
