@@ -1,3 +1,4 @@
+
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -66,7 +67,10 @@ function validUrl(value: string): boolean {
 function buildPreview(style: EmbedStyle): EmbedBuilder {
   const embed = new EmbedBuilder();
 
-  if (style.title !== undefined) embed.setTitle(style.title || null);
+  if (style.title !== undefined) {
+    embed.setTitle(style.title || null);
+  }
+
   if (style.description !== undefined) {
     embed.setDescription(style.description || null);
   }
@@ -98,14 +102,27 @@ function buildPreview(style: EmbedStyle): EmbedBuilder {
     );
   }
 
-  if (style.image !== undefined) embed.setImage(style.image || null);
+  if (style.image !== undefined) {
+    embed.setImage(style.image || null);
+  }
+
   if (style.thumbnail !== undefined) {
     embed.setThumbnail(style.thumbnail || null);
   }
-  if (style.color !== undefined) embed.setColor(style.color);
-  if (style.fields?.length) embed.addFields(...style.fields);
 
-  if (!embed.data.title && !embed.data.description && !embed.data.fields?.length) {
+  if (style.color !== undefined) {
+    embed.setColor(style.color);
+  }
+
+  if (style.fields?.length) {
+    embed.addFields(...style.fields);
+  }
+
+  if (
+    !embed.data.title &&
+    !embed.data.description &&
+    !embed.data.fields?.length
+  ) {
     embed.setDescription("Your embed preview will appear here.");
   }
 
@@ -204,7 +221,10 @@ function createInput(
     .setRequired(required)
     .setMaxLength(maxLength);
 
-  if (value) input.setValue(value);
+  if (value) {
+    input.setValue(value);
+  }
+
   return input;
 }
 
@@ -257,13 +277,16 @@ export const embedCommand: BotCommand = {
       userId: interaction.user.id,
       guildId: interaction.guild.id,
       template,
-      style: structuredClone(getEmbedStyle(interaction.guild.id, template) ?? {}),
+      style: structuredClone(
+        getEmbedStyle(interaction.guild.id, template) ?? {},
+      ),
     };
 
     drafts.set(draftId, draft);
 
     await interaction.reply({
-      content: "**Gamblias — Embed Studio**\nChoose a message, then use the buttons to customize its embed. The preview updates automatically.",
+      content:
+        "**Gamblias — Embed Studio**\nChoose a message, then use the buttons to customize its embed. The preview updates automatically.",
       ...buildEditor(draftId, draft),
       ephemeral: true,
     });
@@ -275,11 +298,29 @@ export async function handleEmbedInteraction(
 ): Promise<boolean> {
   const customId = interaction.customId;
 
-  if (!customId.startsWith("embed_")) return false;
+  if (!customId.startsWith("embed_")) {
+    return false;
+  }
 
   const parts = customId.split(":");
-  const action = parts[1];
-  const draftId = parts[parts.length - 1];
+  const prefix = parts[0];
+
+  let draftId: string | undefined;
+
+  if (prefix === "embed_template") {
+    draftId = parts[1];
+  } else if (prefix === "embed_edit" || prefix === "embed_modal") {
+    draftId = parts[2];
+  } else if (prefix === "embed_save" || prefix === "embed_cancel") {
+    draftId = parts[1];
+  } else {
+    return false;
+  }
+
+  if (!draftId) {
+    return false;
+  }
+
   const draft = drafts.get(draftId);
 
   if (!draft) {
@@ -299,10 +340,19 @@ export async function handleEmbedInteraction(
   }
 
   if (interaction.isStringSelectMenu()) {
-    if (action !== "template") return false;
+    if (prefix !== "embed_template") {
+      return false;
+    }
 
     const template = interaction.values[0] as EmbedTemplate;
-    if (!TEMPLATES.some((item) => item.value === template)) return true;
+
+    if (!TEMPLATES.some((item) => item.value === template)) {
+      await interaction.reply({
+        content: "Unknown embed template.",
+        ephemeral: true,
+      });
+      return true;
+    }
 
     draft.template = template;
     draft.style = structuredClone(
@@ -313,11 +363,12 @@ export async function handleEmbedInteraction(
       content: `**Gamblias — Embed Studio**\nEditing: **${template}**`,
       ...buildEditor(draftId, draft),
     });
+
     return true;
   }
 
   if (interaction.isButton()) {
-    if (action === "save") {
+    if (prefix === "embed_save") {
       saveEmbedStyle(draft.guildId, draft.template, draft.style);
       drafts.delete(draftId);
 
@@ -326,30 +377,52 @@ export async function handleEmbedInteraction(
         embeds: [],
         components: [],
       });
+
       return true;
     }
 
-    if (action === "cancel") {
+    if (prefix === "embed_cancel") {
       drafts.delete(draftId);
+
       await interaction.update({
         content: "Embed editor closed. No changes were saved.",
         embeds: [],
         components: [],
       });
+
       return true;
     }
 
+    if (prefix !== "embed_edit") {
+      return false;
+    }
+
     const editAction = parts[1];
+
     const modal = (() => {
       switch (editAction) {
         case "title":
           return createModal(draftId, "title", "Edit Title", [
-            createInput("value", "Title", draft.style.title, TextInputStyle.Short, false, 256),
+            createInput(
+              "value",
+              "Title",
+              draft.style.title,
+              TextInputStyle.Short,
+              false,
+              256,
+            ),
           ]);
 
         case "description":
           return createModal(draftId, "description", "Edit Description", [
-            createInput("value", "Description", draft.style.description, TextInputStyle.Paragraph, false, 4000),
+            createInput(
+              "value",
+              "Description",
+              draft.style.description,
+              TextInputStyle.Paragraph,
+              false,
+              4000,
+            ),
           ]);
 
         case "author":
@@ -367,35 +440,71 @@ export async function handleEmbedInteraction(
 
         case "image":
         case "thumbnail":
-          return createModal(draftId, editAction, editAction === "image" ? "Edit Image / GIF" : "Edit Thumbnail", [
-            createInput("url", "Image URL (leave empty to remove)", editAction === "image" ? draft.style.image : draft.style.thumbnail, TextInputStyle.Short, false, 500),
-          ]);
+          return createModal(
+            draftId,
+            editAction,
+            editAction === "image" ? "Edit Image / GIF" : "Edit Thumbnail",
+            [
+              createInput(
+                "url",
+                "Image URL (leave empty to remove)",
+                editAction === "image"
+                  ? draft.style.image
+                  : draft.style.thumbnail,
+                TextInputStyle.Short,
+                false,
+                500,
+              ),
+            ],
+          );
 
         case "color":
           return createModal(draftId, "color", "Edit Embed Color", [
-            createInput("value", "Hex color, e.g. #5865F2", draft.style.color === undefined ? "" : `#${draft.style.color.toString(16).padStart(6, "0")}`, TextInputStyle.Short, false, 7),
+            createInput(
+              "value",
+              "Hex color, e.g. #5865F2",
+              draft.style.color === undefined
+                ? ""
+                : `#${draft.style.color.toString(16).padStart(6, "0")}`,
+              TextInputStyle.Short,
+              false,
+              7,
+            ),
           ]);
 
         case "field":
         case "inline":
-          return createModal(draftId, editAction, editAction === "inline" ? "Add Inline Field" : "Add Field", [
-            createInput("name", "Field name", undefined, TextInputStyle.Short, true, 256),
-            createInput("value", "Field value", undefined, TextInputStyle.Paragraph, true, 1024),
-          ]);
+          return createModal(
+            draftId,
+            editAction,
+            editAction === "inline" ? "Add Inline Field" : "Add Field",
+            [
+              createInput("name", "Field name", undefined, TextInputStyle.Short, true, 256),
+              createInput("value", "Field value", undefined, TextInputStyle.Paragraph, true, 1024),
+            ],
+          );
 
         default:
           return null;
       }
     })();
 
-    if (!modal) return false;
+    if (!modal) {
+      return false;
+    }
+
     await interaction.showModal(modal);
     return true;
   }
 
   if (interaction.isModalSubmit()) {
+    if (prefix !== "embed_modal") {
+      return false;
+    }
+
     const modalAction = parts[1];
-    const get = (id: string) => interaction.fields.getTextInputValue(id).trim();
+    const get = (id: string) =>
+      interaction.fields.getTextInputValue(id).trim();
 
     switch (modalAction) {
       case "title":
@@ -419,7 +528,11 @@ export async function handleEmbedInteraction(
           return true;
         }
 
-        draft.style.author = { name, ...(url ? { url } : {}), ...(iconURL ? { iconURL } : {}) };
+        draft.style.author = {
+          name,
+          ...(url ? { url } : {}),
+          ...(iconURL ? { iconURL } : {}),
+        };
         break;
       }
 
@@ -435,7 +548,10 @@ export async function handleEmbedInteraction(
           return true;
         }
 
-        draft.style.footer = { text, ...(iconURL ? { iconURL } : {}) };
+        draft.style.footer = {
+          text,
+          ...(iconURL ? { iconURL } : {}),
+        };
         break;
       }
 
@@ -451,8 +567,11 @@ export async function handleEmbedInteraction(
           return true;
         }
 
-        if (modalAction === "image") draft.style.image = url;
-        else draft.style.thumbnail = url;
+        if (modalAction === "image") {
+          draft.style.image = url;
+        } else {
+          draft.style.thumbnail = url;
+        }
         break;
       }
 
@@ -461,6 +580,7 @@ export async function handleEmbedInteraction(
 
         if (value) {
           const normalized = value.replace(/^#/, "");
+
           if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
             await interaction.reply({
               content: "Invalid color. Example: #5865F2",
@@ -468,6 +588,7 @@ export async function handleEmbedInteraction(
             });
             return true;
           }
+
           draft.style.color = Number.parseInt(normalized, 16);
         } else {
           delete draft.style.color;
@@ -479,6 +600,7 @@ export async function handleEmbedInteraction(
       case "inline": {
         const name = get("name");
         const value = get("value");
+
         draft.style.fields ??= [];
 
         if (draft.style.fields.length >= 25) {
@@ -505,6 +627,7 @@ export async function handleEmbedInteraction(
       content: `**Gamblias — Embed Studio**\nEditing: **${draft.template}**`,
       ...buildEditor(draftId, draft),
     });
+
     return true;
   }
 
