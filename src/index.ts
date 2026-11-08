@@ -18,6 +18,7 @@ import { registerRoleSystem } from "./roles/roles.ts";
 import { commands } from "./commands/index.ts";
 import { handleEmbedInteraction } from "./commands/embed.js";
 import { getBotConfig } from "./config.ts";
+import { installEmbedPolicy } from "./embeds/system.ts";
 import { registerSaySystem } from "./say/say.ts";
 
 import {
@@ -62,6 +63,8 @@ const client = new Client({
     GatewayIntentBits.GuildVoiceStates,
   ],
 });
+
+installEmbedPolicy(client);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.info(`Ready! Logged in as ${readyClient.user.tag}`);
