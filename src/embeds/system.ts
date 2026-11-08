@@ -1,3 +1,4 @@
+
 import {
   EmbedBuilder,
   Events,
@@ -55,20 +56,44 @@ function convertToEmbedPayload(
     ? payload.embeds
     : [];
 
+  // Discord يسمح بحد أقصى 10 Embeds في الرسالة.
+  const embeds = [...existingEmbeds];
+
+  if (embeds.length < 10) {
+    embeds.push(
+      createSystemEmbed(payload.content, guildId),
+    );
+  }
+
   return {
     ...payload,
     content: undefined,
-    embeds: [
-      ...existingEmbeds,
-      createSystemEmbed(payload.content, guildId),
-    ],
+    embeds,
   };
+}
+
+function isEmbedStudioInteraction(interaction: any): boolean {
+  // استثناء أمر /embed نفسه.
+  if (
+    typeof interaction.isChatInputCommand === "function" &&
+    interaction.isChatInputCommand() &&
+    interaction.commandName === "embed"
+  ) {
+    return true;
+  }
+
+  // استثناء كل أزرار وقوائم ومودالات Embed Studio.
+  return (
+    typeof interaction.customId === "string" &&
+    interaction.customId.startsWith("embed_")
+  );
 }
 
 export function installEmbedPolicy(client: Client) {
   /*
-   * تحويل كل message.reply إلى Embed.
-   * ده يشمل التحذيرات والأخطاء ورسائل طلب البيانات.
+   * تحويل message.reply إلى Embed.
+   * النصوص المرسلة مباشرة باستخدام channel.send
+   * لا يتم تغييرها هنا.
    */
   client.on(Events.MessageCreate, (message) => {
     if (message.author.bot || !message.guild) {
@@ -92,10 +117,14 @@ export function installEmbedPolicy(client: Client) {
   });
 
   /*
-   * تحويل ردود Slash Commands والأزرار والقوائم
-   * إلى Embeds قبل وصولها إلى معالجات الأنظمة.
+   * تحويل ردود أوامر وتفاعلات البوت إلى Embeds.
+   * Embed Studio مستثنى بالكامل حتى لا تتكرر رسائله.
    */
   client.on(Events.InteractionCreate, (interaction) => {
+    if (isEmbedStudioInteraction(interaction)) {
+      return;
+    }
+
     const methods = [
       "reply",
       "followUp",
