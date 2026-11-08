@@ -1,3 +1,4 @@
+
 import {
   Client,
   Events,
@@ -15,7 +16,7 @@ import { registerAntiSpam } from "./automod/anti-spam.ts";
 import { registerBanSystem } from "./bans/index.ts";
 import { registerRoleSystem } from "./roles/roles.ts";
 import { commands } from "./commands/index.ts";
-import { handleEmbedButton } from "./commands/embed.js";
+import { handleEmbedInteraction } from "./commands/embed.js";
 import { getBotConfig } from "./config.ts";
 import { registerSaySystem } from "./say/say.ts";
 
@@ -486,9 +487,19 @@ client.on(
  */
 
 client.on(Events.InteractionCreate, async (interaction) => {
-    if (interaction.isButton()) {
+  /*
+   * =========================
+   * Embed Studio
+   * =========================
+   */
+
+  if (
+    interaction.isButton() ||
+    interaction.isStringSelectMenu() ||
+    interaction.isModalSubmit()
+  ) {
     try {
-      const handled = await handleEmbedButton(interaction);
+      const handled = await handleEmbedInteraction(interaction);
 
       if (handled) return;
     } catch (error) {
@@ -496,7 +507,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: "An error occurred while saving the embed.",
+          content: "An error occurred while editing the embed.",
           ephemeral: true,
         });
       }
@@ -504,6 +515,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
   }
+
   /*
    * =========================
    * Permissions Manager
