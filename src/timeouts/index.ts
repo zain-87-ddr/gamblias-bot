@@ -298,6 +298,12 @@ async function handleTimeout(message: Message) {
       parsedDuration.label,
       reasonInput,
     ),
+    {
+      member: target.toString(),
+      moderator: moderator.toString(),
+      reason: reasonInput,
+      duration: parsedDuration.label,
+    },
   );
 
   await channel.send({
