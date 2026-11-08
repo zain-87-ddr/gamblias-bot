@@ -1,12 +1,13 @@
+
 import {
   EmbedBuilder,
   PermissionFlagsBits,
   type Client,
-  type Message,
   type TextChannel,
 } from "discord.js";
 
 import { hasBotPermission } from "../permissions/permissions.ts";
+import { applyEmbedStyle } from "../embeds/store.ts";
 
 export function registerLockSystem(client: Client) {
   client.on("messageCreate", async (message) => {
@@ -107,8 +108,14 @@ export function registerLockSystem(client: Client) {
             text: "Gamblias • Lock System",
           });
 
+        const styledEmbed = applyEmbedStyle(
+          message.guild.id,
+          "lock",
+          embed,
+        );
+
         await message.reply({
-          embeds: [embed],
+          embeds: [styledEmbed],
         });
 
         return;
@@ -133,8 +140,14 @@ export function registerLockSystem(client: Client) {
           text: "Gamblias • Lock System",
         });
 
+      const styledEmbed = applyEmbedStyle(
+        message.guild.id,
+        "unlock",
+        embed,
+      );
+
       await message.reply({
-        embeds: [embed],
+        embeds: [styledEmbed],
       });
     } catch (error) {
       console.error("[LockSystem] Error:", error);
