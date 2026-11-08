@@ -1,26 +1,29 @@
-
 import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  ModalBuilder,
+  StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   PermissionFlagsBits,
   SlashCommandBuilder,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
+  type ModalSubmitInteraction,
+  type StringSelectMenuInteraction,
 } from "discord.js";
 
 import type { BotCommand } from "../types/command.js";
 import {
+  getEmbedStyle,
   saveEmbedStyle,
   type EmbedStyle,
   type EmbedTemplate,
 } from "../embeds/store.js";
 
-const TEMPLATES: {
-  name: string;
-  value: EmbedTemplate;
-}[] = [
+const TEMPLATES: { name: string; value: EmbedTemplate }[] = [
   { name: "Warning", value: "warning" },
   { name: "Maximum Warnings", value: "max-warning" },
   { name: "Timeout", value: "timeout" },
@@ -44,74 +47,191 @@ type Draft = {
   style: EmbedStyle;
 };
 
+type EditorInteraction =
+  | ButtonInteraction
+  | StringSelectMenuInteraction
+  | ModalSubmitInteraction;
+
 const drafts = new Map<string, Draft>();
 
-function validUrl(value: string | null): string | undefined {
-  if (!value) return undefined;
-
+function validUrl(value: string): boolean {
   try {
     const url = new URL(value);
-
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return undefined;
-    }
-
-    return value;
+    return url.protocol === "https:" || url.protocol === "http:";
   } catch {
-    return undefined;
+    return false;
   }
 }
 
 function buildPreview(style: EmbedStyle): EmbedBuilder {
   const embed = new EmbedBuilder();
 
-  if (style.title) embed.setTitle(style.title);
-  if (style.description) embed.setDescription(style.description);
-  if (style.footer) embed.setFooter({ text: style.footer });
-  if (style.image) embed.setImage(style.image);
-  if (style.thumbnail) embed.setThumbnail(style.thumbnail);
+  if (style.title !== undefined) embed.setTitle(style.title || null);
+  if (style.description !== undefined) {
+    embed.setDescription(style.description || null);
+  }
+
+  if (style.author !== undefined) {
+    embed.setAuthor(
+      style.author.name
+        ? {
+            name: style.author.name,
+            ...(style.author.url ? { url: style.author.url } : {}),
+            ...(style.author.iconURL
+              ? { iconURL: style.author.iconURL }
+              : {}),
+          }
+        : null,
+    );
+  }
+
+  if (style.footer !== undefined) {
+    embed.setFooter(
+      style.footer.text
+        ? {
+            text: style.footer.text,
+            ...(style.footer.iconURL
+              ? { iconURL: style.footer.iconURL }
+              : {}),
+          }
+        : null,
+    );
+  }
+
+  if (style.image !== undefined) embed.setImage(style.image || null);
+  if (style.thumbnail !== undefined) {
+    embed.setThumbnail(style.thumbnail || null);
+  }
   if (style.color !== undefined) embed.setColor(style.color);
+  if (style.fields?.length) embed.addFields(...style.fields);
+
+  if (!embed.data.title && !embed.data.description && !embed.data.fields?.length) {
+    embed.setDescription("Your embed preview will appear here.");
+  }
 
   return embed;
+}
+
+function buildEditor(draftId: string, draft: Draft) {
+  const templateMenu = new StringSelectMenuBuilder()
+    .setCustomId(`embed_template:${draftId}`)
+    .setPlaceholder("Choose the message to customize")
+    .addOptions(
+      TEMPLATES.map((item) => ({
+        label: item.name,
+        value: item.value,
+        default: item.value === draft.template,
+      })),
+    );
+
+  const row1 = new ActionRowBuilder<StringSelectMenuBuilder>()
+    .addComponents(templateMenu);
+
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`embed_edit:title:${draftId}`)
+      .setLabel("Title")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`embed_edit:description:${draftId}`)
+      .setLabel("Description")
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`embed_edit:author:${draftId}`)
+      .setLabel("Author")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`embed_edit:footer:${draftId}`)
+      .setLabel("Footer")
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  const row4 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`embed_edit:image:${draftId}`)
+      .setLabel("Image / GIF")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`embed_edit:thumbnail:${draftId}`)
+      .setLabel("Thumbnail")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`embed_edit:color:${draftId}`)
+      .setLabel("Color")
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  const row5 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`embed_edit:field:${draftId}`)
+      .setLabel("Add Field")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`embed_edit:inline:${draftId}`)
+      .setLabel("Add Inline Field")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`embed_save:${draftId}`)
+      .setLabel("Save")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`embed_cancel:${draftId}`)
+      .setLabel("Cancel")
+      .setStyle(ButtonStyle.Danger),
+  );
+
+  return {
+    embeds: [buildPreview(draft.style)],
+    components: [row1, row2, row3, row4, row5],
+  };
+}
+
+function createInput(
+  id: string,
+  label: string,
+  value?: string,
+  style: TextInputStyle = TextInputStyle.Short,
+  required = false,
+  maxLength = 4000,
+) {
+  const input = new TextInputBuilder()
+    .setCustomId(id)
+    .setLabel(label)
+    .setStyle(style)
+    .setRequired(required)
+    .setMaxLength(maxLength);
+
+  if (value) input.setValue(value);
+  return input;
+}
+
+function createModal(
+  draftId: string,
+  action: string,
+  title: string,
+  inputs: TextInputBuilder[],
+) {
+  const modal = new ModalBuilder()
+    .setCustomId(`embed_modal:${action}:${draftId}`)
+    .setTitle(title);
+
+  for (const input of inputs) {
+    modal.addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(input),
+    );
+  }
+
+  return modal;
 }
 
 export const embedCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("embed")
-    .setDescription("Customize Gamblias embed messages.")
-    .setDefaultMemberPermissions(
-      PermissionFlagsBits.ManageGuild.toString(),
-    )
-    .addStringOption((option) =>
-      option
-        .setName("template")
-        .setDescription("Choose the message you want to customize.")
-        .setRequired(true)
-        .addChoices(
-          ...TEMPLATES.map((item) => ({
-            name: item.name,
-            value: item.value,
-          })),
-        ),
-    )
-    .addStringOption((option) =>
-      option.setName("title").setDescription("Embed title").setMaxLength(256),
-    )
-    .addStringOption((option) =>
-      option.setName("description").setDescription("Embed description").setMaxLength(4000),
-    )
-    .addStringOption((option) =>
-      option.setName("footer").setDescription("Embed footer").setMaxLength(2048),
-    )
-    .addStringOption((option) =>
-      option.setName("image").setDescription("Image or GIF URL"),
-    )
-    .addStringOption((option) =>
-      option.setName("thumbnail").setDescription("Thumbnail image URL"),
-    )
-    .addStringOption((option) =>
-      option.setName("color").setDescription("Hex color, e.g. #5865F2"),
-    ),
+    .setDescription("Open the Gamblias embed editor.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString()),
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild) {
@@ -122,11 +242,7 @@ export const embedCommand: BotCommand = {
       return;
     }
 
-    if (
-      !interaction.memberPermissions?.has(
-        PermissionFlagsBits.ManageGuild,
-      )
-    ) {
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
       await interaction.reply({
         content: "You need Manage Server permission to use this command.",
         ephemeral: true,
@@ -134,115 +250,41 @@ export const embedCommand: BotCommand = {
       return;
     }
 
-    const template = interaction.options.getString(
-      "template",
-      true,
-    ) as EmbedTemplate;
+    const draftId = interaction.id.slice(-12);
+    const template: EmbedTemplate = "warning";
 
-    const imageInput = interaction.options.getString("image");
-    const thumbnailInput = interaction.options.getString("thumbnail");
-    const colorInput = interaction.options.getString("color");
-
-    const image = validUrl(imageInput);
-    const thumbnail = validUrl(thumbnailInput);
-
-    if (imageInput && !image) {
-      await interaction.reply({
-        content: "Invalid image URL. Use a valid HTTP or HTTPS URL.",
-        ephemeral: true,
-      });
-      return;
-    }
-
-    if (thumbnailInput && !thumbnail) {
-      await interaction.reply({
-        content: "Invalid thumbnail URL. Use a valid HTTP or HTTPS URL.",
-        ephemeral: true,
-      });
-      return;
-    }
-
-    let color: number | undefined;
-
-    if (colorInput) {
-      const normalized = colorInput.replace(/^#/, "");
-
-      if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
-        await interaction.reply({
-          content: "Invalid color. Example: #5865F2",
-          ephemeral: true,
-        });
-        return;
-      }
-
-      color = Number.parseInt(normalized, 16);
-    }
-
-    const style: EmbedStyle = {};
-
-    const title = interaction.options.getString("title");
-    const description = interaction.options.getString("description");
-    const footer = interaction.options.getString("footer");
-
-    if (title !== null) style.title = title;
-    if (description !== null) style.description = description;
-    if (footer !== null) style.footer = footer;
-    if (image !== undefined) style.image = image;
-    if (thumbnail !== undefined) style.thumbnail = thumbnail;
-    if (color !== undefined) style.color = color;
-
-    if (Object.keys(style).length === 0) {
-      await interaction.reply({
-        content: "Add at least one style option before previewing.",
-        ephemeral: true,
-      });
-      return;
-    }
-
-    const draftId = `${interaction.id.slice(-12)}`;
-    drafts.set(draftId, {
+    const draft: Draft = {
       userId: interaction.user.id,
       guildId: interaction.guild.id,
       template,
-      style,
-    });
+      style: structuredClone(getEmbedStyle(interaction.guild.id, template) ?? {}),
+    };
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`embed_save:${draftId}`)
-        .setLabel("Save")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(`embed_cancel:${draftId}`)
-        .setLabel("Cancel")
-        .setStyle(ButtonStyle.Secondary),
-    );
+    drafts.set(draftId, draft);
 
     await interaction.reply({
-      content: `Preview — ${template}`,
-      embeds: [buildPreview(style)],
-      components: [row],
+      content: "**Gamblias — Embed Studio**\nChoose a message, then use the buttons to customize its embed. The preview updates automatically.",
+      ...buildEditor(draftId, draft),
       ephemeral: true,
     });
   },
 };
 
-export async function handleEmbedButton(
-  interaction: ButtonInteraction,
+export async function handleEmbedInteraction(
+  interaction: EditorInteraction,
 ): Promise<boolean> {
-  if (
-    !interaction.customId.startsWith("embed_save:") &&
-    !interaction.customId.startsWith("embed_cancel:")
-  ) {
-    return false;
-  }
+  const customId = interaction.customId;
 
-  const [action, draftId] = interaction.customId.split(":");
+  if (!customId.startsWith("embed_")) return false;
+
+  const parts = customId.split(":");
+  const action = parts[1];
+  const draftId = parts[parts.length - 1];
   const draft = drafts.get(draftId);
 
   if (!draft) {
     await interaction.reply({
-      content: "This preview has expired. Run /embed again.",
+      content: "This editor has expired. Run /embed again.",
       ephemeral: true,
     });
     return true;
@@ -250,37 +292,221 @@ export async function handleEmbedButton(
 
   if (draft.userId !== interaction.user.id) {
     await interaction.reply({
-      content: "Only the person who created this preview can use these buttons.",
+      content: "Only the person who opened this editor can use it.",
       ephemeral: true,
     });
     return true;
   }
 
-  if (action === "embed_cancel") {
-    drafts.delete(draftId);
+  if (interaction.isStringSelectMenu()) {
+    if (action !== "template") return false;
+
+    const template = interaction.values[0] as EmbedTemplate;
+    if (!TEMPLATES.some((item) => item.value === template)) return true;
+
+    draft.template = template;
+    draft.style = structuredClone(
+      getEmbedStyle(draft.guildId, template) ?? {},
+    );
 
     await interaction.update({
-      content: "Preview cancelled.",
-      embeds: [],
-      components: [],
+      content: `**Gamblias — Embed Studio**\nEditing: **${template}**`,
+      ...buildEditor(draftId, draft),
     });
-
     return true;
   }
 
-  saveEmbedStyle(
-    draft.guildId,
-    draft.template,
-    draft.style,
-  );
+  if (interaction.isButton()) {
+    if (action === "save") {
+      saveEmbedStyle(draft.guildId, draft.template, draft.style);
+      drafts.delete(draftId);
 
-  drafts.delete(draftId);
+      await interaction.update({
+        content: `Saved the embed design for **${draft.template}**.`,
+        embeds: [],
+        components: [],
+      });
+      return true;
+    }
 
-  await interaction.update({
-    content: `Saved customization for **${draft.template}**.`,
-    embeds: [],
-    components: [],
-  });
+    if (action === "cancel") {
+      drafts.delete(draftId);
+      await interaction.update({
+        content: "Embed editor closed. No changes were saved.",
+        embeds: [],
+        components: [],
+      });
+      return true;
+    }
 
-  return true;
+    const editAction = parts[1];
+    const modal = (() => {
+      switch (editAction) {
+        case "title":
+          return createModal(draftId, "title", "Edit Title", [
+            createInput("value", "Title", draft.style.title, TextInputStyle.Short, false, 256),
+          ]);
+
+        case "description":
+          return createModal(draftId, "description", "Edit Description", [
+            createInput("value", "Description", draft.style.description, TextInputStyle.Paragraph, false, 4000),
+          ]);
+
+        case "author":
+          return createModal(draftId, "author", "Edit Author", [
+            createInput("name", "Author name", draft.style.author?.name, TextInputStyle.Short, false, 256),
+            createInput("url", "Author URL (optional)", draft.style.author?.url, TextInputStyle.Short, false, 500),
+            createInput("icon", "Author icon URL (optional)", draft.style.author?.iconURL, TextInputStyle.Short, false, 500),
+          ]);
+
+        case "footer":
+          return createModal(draftId, "footer", "Edit Footer", [
+            createInput("text", "Footer text", draft.style.footer?.text, TextInputStyle.Short, false, 2048),
+            createInput("icon", "Footer icon URL (optional)", draft.style.footer?.iconURL, TextInputStyle.Short, false, 500),
+          ]);
+
+        case "image":
+        case "thumbnail":
+          return createModal(draftId, editAction, editAction === "image" ? "Edit Image / GIF" : "Edit Thumbnail", [
+            createInput("url", "Image URL (leave empty to remove)", editAction === "image" ? draft.style.image : draft.style.thumbnail, TextInputStyle.Short, false, 500),
+          ]);
+
+        case "color":
+          return createModal(draftId, "color", "Edit Embed Color", [
+            createInput("value", "Hex color, e.g. #5865F2", draft.style.color === undefined ? "" : `#${draft.style.color.toString(16).padStart(6, "0")}`, TextInputStyle.Short, false, 7),
+          ]);
+
+        case "field":
+        case "inline":
+          return createModal(draftId, editAction, editAction === "inline" ? "Add Inline Field" : "Add Field", [
+            createInput("name", "Field name", undefined, TextInputStyle.Short, true, 256),
+            createInput("value", "Field value", undefined, TextInputStyle.Paragraph, true, 1024),
+          ]);
+
+        default:
+          return null;
+      }
+    })();
+
+    if (!modal) return false;
+    await interaction.showModal(modal);
+    return true;
+  }
+
+  if (interaction.isModalSubmit()) {
+    const modalAction = parts[1];
+    const get = (id: string) => interaction.fields.getTextInputValue(id).trim();
+
+    switch (modalAction) {
+      case "title":
+        draft.style.title = get("value");
+        break;
+
+      case "description":
+        draft.style.description = get("value");
+        break;
+
+      case "author": {
+        const name = get("name");
+        const url = get("url");
+        const iconURL = get("icon");
+
+        if ((url && !validUrl(url)) || (iconURL && !validUrl(iconURL))) {
+          await interaction.reply({
+            content: "Author URLs must be valid HTTP or HTTPS links.",
+            ephemeral: true,
+          });
+          return true;
+        }
+
+        draft.style.author = { name, ...(url ? { url } : {}), ...(iconURL ? { iconURL } : {}) };
+        break;
+      }
+
+      case "footer": {
+        const text = get("text");
+        const iconURL = get("icon");
+
+        if (iconURL && !validUrl(iconURL)) {
+          await interaction.reply({
+            content: "Footer icon must be a valid HTTP or HTTPS URL.",
+            ephemeral: true,
+          });
+          return true;
+        }
+
+        draft.style.footer = { text, ...(iconURL ? { iconURL } : {}) };
+        break;
+      }
+
+      case "image":
+      case "thumbnail": {
+        const url = get("url");
+
+        if (url && !validUrl(url)) {
+          await interaction.reply({
+            content: "Use a valid HTTP or HTTPS image URL.",
+            ephemeral: true,
+          });
+          return true;
+        }
+
+        if (modalAction === "image") draft.style.image = url;
+        else draft.style.thumbnail = url;
+        break;
+      }
+
+      case "color": {
+        const value = get("value");
+
+        if (value) {
+          const normalized = value.replace(/^#/, "");
+          if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+            await interaction.reply({
+              content: "Invalid color. Example: #5865F2",
+              ephemeral: true,
+            });
+            return true;
+          }
+          draft.style.color = Number.parseInt(normalized, 16);
+        } else {
+          delete draft.style.color;
+        }
+        break;
+      }
+
+      case "field":
+      case "inline": {
+        const name = get("name");
+        const value = get("value");
+        draft.style.fields ??= [];
+
+        if (draft.style.fields.length >= 25) {
+          await interaction.reply({
+            content: "Discord allows a maximum of 25 fields in one embed.",
+            ephemeral: true,
+          });
+          return true;
+        }
+
+        draft.style.fields.push({
+          name,
+          value,
+          inline: modalAction === "inline",
+        });
+        break;
+      }
+
+      default:
+        return false;
+    }
+
+    await interaction.update({
+      content: `**Gamblias — Embed Studio**\nEditing: **${draft.template}**`,
+      ...buildEditor(draftId, draft),
+    });
+    return true;
+  }
+
+  return false;
 }
