@@ -12,6 +12,7 @@ import {
   sendWarnLog,
 } from "../logs/index.ts";
 import { hasBotPermission } from "../permissions/permissions.ts";
+import { applyEmbedStyle } from "../embeds/store.ts";
 import {
   addWarning,
   initializeWarningStore,
@@ -89,10 +90,7 @@ async function resolveTarget(message: Message, remainder: string) {
         reason,
       };
     } catch {
-      await reply(
-        message,
-        "لم يتم العثور على العضو المذكور في السيرفر.",
-      );
+      await reply(message, "لم يتم العثور على العضو المذكور في السيرفر.");
 
       return {
         target: null,
@@ -164,11 +162,6 @@ async function handleWarning(message: Message) {
 
   const moderator = message.member;
 
-  /*
-   * Gamblias Permission
-   * العضو محتاج Permission من نظام Gamblias فقط.
-   * مش محتاج Moderate Members من Discord.
-   */
   if (
     !hasBotPermission(
       message.guild.id,
@@ -202,18 +195,10 @@ async function handleWarning(message: Message) {
   }
 
   if (!reason) {
-    await reply(
-      message,
-      "يرجى كتابة سبب التحذير.",
-    );
+    await reply(message, "يرجى كتابة سبب التحذير.");
     return;
   }
 
-  /*
-   * Hierarchy الخاصة بالـModerator
-   * مش محتاج Discord Permission هنا،
-   * لكن لسه ممنوع يتعامل مع عضو أعلى منه.
-   */
   if (!canModerate(moderator, target)) {
     await reply(
       message,
@@ -222,9 +207,6 @@ async function handleWarning(message: Message) {
     return;
   }
 
-  /*
-   * صلاحيات البوت نفسه من Discord.
-   */
   const botMember =
     message.guild.members.me ??
     (await message.guild.members.fetchMe());
@@ -288,14 +270,15 @@ async function handleWarning(message: Message) {
       target.id,
     );
 
+    const embed = applyEmbedStyle(
+      message.guild.id,
+      "max-warning",
+      maximumWarningsEmbed(target, moderator),
+    );
+
     await channel.send({
       content: target.toString(),
-      embeds: [
-        maximumWarningsEmbed(
-          target,
-          moderator,
-        ),
-      ],
+      embeds: [embed],
     });
 
     return;
@@ -311,16 +294,15 @@ async function handleWarning(message: Message) {
     count,
   );
 
+  const embed = applyEmbedStyle(
+    message.guild.id,
+    "warning",
+    warningEmbed(target, moderator, reason, count),
+  );
+
   await channel.send({
     content: target.toString(),
-    embeds: [
-      warningEmbed(
-        target,
-        moderator,
-        reason,
-        count,
-      ),
-    ],
+    embeds: [embed],
   });
 }
 
