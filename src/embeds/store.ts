@@ -3,9 +3,14 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, resolve } from "node:path";
+
+import {
+  dirname,
+  resolve,
+} from "node:path";
 
 export type EmbedTemplate =
+  | "system"
   | "warning"
   | "max-warning"
   | "timeout"
@@ -30,15 +35,18 @@ export type EmbedFieldStyle = {
 export type EmbedStyle = {
   title?: string;
   description?: string;
+
   author?: {
     name: string;
     url?: string;
     iconURL?: string;
   };
+
   footer?: {
     text: string;
     iconURL?: string;
   };
+
   image?: string;
   thumbnail?: string;
   color?: number;
@@ -48,19 +56,32 @@ export type EmbedStyle = {
 type GuildStyles = Record<string, EmbedStyle>;
 type Store = Record<string, GuildStyles>;
 
-const FILE_PATH = resolve(process.cwd(), "data", "embed-settings.json");
+const FILE_PATH = resolve(
+  process.cwd(),
+  "data",
+  "embed-settings.json",
+);
 
 function readStore(): Store {
   try {
-    return JSON.parse(readFileSync(FILE_PATH, "utf8")) as Store;
+    return JSON.parse(
+      readFileSync(FILE_PATH, "utf8"),
+    ) as Store;
   } catch {
     return {};
   }
 }
 
 function writeStore(store: Store): void {
-  mkdirSync(dirname(FILE_PATH), { recursive: true });
-  writeFileSync(FILE_PATH, JSON.stringify(store, null, 2), "utf8");
+  mkdirSync(dirname(FILE_PATH), {
+    recursive: true,
+  });
+
+  writeFileSync(
+    FILE_PATH,
+    JSON.stringify(store, null, 2),
+    "utf8",
+  );
 }
 
 export function getEmbedStyle(
@@ -88,16 +109,42 @@ export function applyEmbedStyle(
   template: EmbedTemplate,
   embed: import("discord.js").EmbedBuilder,
 ): import("discord.js").EmbedBuilder {
-  const style = getEmbedStyle(guildId, template);
+  const style = getEmbedStyle(
+    guildId,
+    template,
+  );
 
-  if (!style) return embed;
-
-  if (style.title !== undefined) {
-    embed.setTitle(style.title || null);
+  if (!style) {
+    return embed;
   }
 
+  if (style.title !== undefined) {
+    embed.setTitle(
+      style.title || null,
+    );
+  }
+
+  /*
+   * الوصف المخصص يضاف قبل الوصف الأصلي.
+   * كده بيانات العضو والسبب والمدة لا تختفي
+   * لما نغير تصميم الإيمبد.
+   */
   if (style.description !== undefined) {
-    embed.setDescription(style.description || null);
+    const originalDescription =
+      embed.data.description ?? "";
+
+    if (style.description.trim()) {
+      const combinedDescription = [
+        style.description.trim(),
+        originalDescription.trim(),
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      embed.setDescription(
+        combinedDescription || null,
+      );
+    }
   }
 
   if (style.author !== undefined) {
@@ -105,7 +152,9 @@ export function applyEmbedStyle(
       style.author.name
         ? {
             name: style.author.name,
-            ...(style.author.url ? { url: style.author.url } : {}),
+            ...(style.author.url
+              ? { url: style.author.url }
+              : {}),
             ...(style.author.iconURL
               ? { iconURL: style.author.iconURL }
               : {}),
@@ -128,11 +177,15 @@ export function applyEmbedStyle(
   }
 
   if (style.image !== undefined) {
-    embed.setImage(style.image || null);
+    embed.setImage(
+      style.image || null,
+    );
   }
 
   if (style.thumbnail !== undefined) {
-    embed.setThumbnail(style.thumbnail || null);
+    embed.setThumbnail(
+      style.thumbnail || null,
+    );
   }
 
   if (style.color !== undefined) {
@@ -140,7 +193,20 @@ export function applyEmbedStyle(
   }
 
   if (style.fields?.length) {
-    embed.addFields(...style.fields);
+    const currentFields =
+      embed.data.fields?.length ?? 0;
+
+    const remainingFields =
+      Math.max(0, 25 - currentFields);
+
+    if (remainingFields > 0) {
+      embed.addFields(
+        ...style.fields.slice(
+          0,
+          remainingFields,
+        ),
+      );
+    }
   }
 
   return embed;
