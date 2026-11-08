@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 import { sendClearLog } from "../logs/index.ts";
 import { hasBotPermission } from "../permissions/permissions.ts";
+import { applyEmbedStyle } from "../embeds/store.ts";
 
 const CLEAR_COMMAND = ".مسح";
 const DEFAULT_AMOUNT = 5;
@@ -78,10 +79,8 @@ async function handleClear(message: Message) {
   let targetUserId: string | undefined;
   let targetUserMention: string | undefined;
 
-  // نمسح أمر .مسح نفسه الأول
   await message.delete().catch(() => {});
 
-  // لو الأمر كان Reply على شخص
   if (message.reference?.messageId) {
     const referencedMessage = await message.fetchReference();
 
@@ -126,7 +125,6 @@ async function handleClear(message: Message) {
       }
     }
   } else {
-    // مسح عادي
     while (deleted < amount) {
       const remaining = amount - deleted;
       const batchSize = Math.min(remaining, 100);
@@ -150,7 +148,6 @@ async function handleClear(message: Message) {
         break;
       }
 
-      // لو كل الرسائل القديمة غير قابلة للمسح
       if (result.size === 0) {
         break;
       }
@@ -194,8 +191,14 @@ async function handleClear(message: Message) {
     });
   }
 
+  const styledEmbed = applyEmbedStyle(
+    message.guild.id,
+    "clear",
+    embed,
+  );
+
   const confirmation = await channel.send({
-    embeds: [embed],
+    embeds: [styledEmbed],
   });
 
   setTimeout(() => {
