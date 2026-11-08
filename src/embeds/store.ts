@@ -53,6 +53,11 @@ export type EmbedStyle = {
   fields?: EmbedFieldStyle[];
 };
 
+export type EmbedVariables = Record<
+  string,
+  string | number | null | undefined
+>;
+
 type GuildStyles = Record<string, EmbedStyle>;
 type Store = Record<string, GuildStyles>;
 
@@ -104,10 +109,28 @@ export function saveEmbedStyle(
   writeStore(store);
 }
 
+export function replaceEmbedVariables(
+  value: string,
+  variables: EmbedVariables = {},
+): string {
+  return value.replace(
+    /\{([a-zA-Z0-9_]+)\}/g,
+    (match, key: string) => {
+      const replacement = variables[key];
+
+      return replacement === undefined ||
+        replacement === null
+        ? match
+        : String(replacement);
+    },
+  );
+}
+
 export function applyEmbedStyle(
   guildId: string,
   template: EmbedTemplate,
   embed: import("discord.js").EmbedBuilder,
+  variables: EmbedVariables = {},
 ): import("discord.js").EmbedBuilder {
   const style = getEmbedStyle(
     guildId,
@@ -118,40 +141,44 @@ export function applyEmbedStyle(
     return embed;
   }
 
+  /*
+   * Title:
+   * لو فيه تصميم مخصص، نستبدل العنوان القديم.
+   */
   if (style.title !== undefined) {
     embed.setTitle(
-      style.title || null,
+      replaceEmbedVariables(
+        style.title,
+        variables,
+      ) || null,
     );
   }
 
   /*
-   * الوصف المخصص يضاف قبل الوصف الأصلي.
-   * كده بيانات العضو والسبب والمدة لا تختفي
-   * لما نغير تصميم الإيمبد.
+   * Description:
+   * الوصف المخصص يستبدل الوصف الافتراضي بالكامل.
+   * مش بنضيفه فوق الوصف القديم.
    */
   if (style.description !== undefined) {
-    const originalDescription =
-      embed.data.description ?? "";
-
-    if (style.description.trim()) {
-      const combinedDescription = [
-        style.description.trim(),
-        originalDescription.trim(),
-      ]
-        .filter(Boolean)
-        .join("\n\n");
-
-      embed.setDescription(
-        combinedDescription || null,
-      );
-    }
+    embed.setDescription(
+      replaceEmbedVariables(
+        style.description,
+        variables,
+      ) || null,
+    );
   }
 
+  /*
+   * Author
+   */
   if (style.author !== undefined) {
     embed.setAuthor(
       style.author.name
         ? {
-            name: style.author.name,
+            name: replaceEmbedVariables(
+              style.author.name,
+              variables,
+            ),
             ...(style.author.url
               ? { url: style.author.url }
               : {}),
@@ -163,11 +190,17 @@ export function applyEmbedStyle(
     );
   }
 
+  /*
+   * Footer
+   */
   if (style.footer !== undefined) {
     embed.setFooter(
       style.footer.text
         ? {
-            text: style.footer.text,
+            text: replaceEmbedVariables(
+              style.footer.text,
+              variables,
+            ),
             ...(style.footer.iconURL
               ? { iconURL: style.footer.iconURL }
               : {}),
@@ -176,37 +209,50 @@ export function applyEmbedStyle(
     );
   }
 
+  /*
+   * Image
+   */
   if (style.image !== undefined) {
     embed.setImage(
       style.image || null,
     );
   }
 
+  /*
+   * Thumbnail
+   */
   if (style.thumbnail !== undefined) {
     embed.setThumbnail(
       style.thumbnail || null,
     );
   }
 
+  /*
+   * Color
+   */
   if (style.color !== undefined) {
     embed.setColor(style.color);
   }
 
-  if (style.fields?.length) {
-    const currentFields =
-      embed.data.fields?.length ?? 0;
-
-    const remainingFields =
-      Math.max(0, 25 - currentFields);
-
-    if (remainingFields > 0) {
-      embed.addFields(
-        ...style.fields.slice(
-          0,
-          remainingFields,
+  /*
+   * Fields:
+   * نستبدل الحقول القديمة بالكامل.
+   * حتى لو المصفوفة فاضية، ده معناه مسح كل الحقول.
+   */
+  if (style.fields !== undefined) {
+    embed.setFields(
+      ...style.fields.map((field) => ({
+        name: replaceEmbedVariables(
+          field.name,
+          variables,
         ),
-      );
-    }
+        value: replaceEmbedVariables(
+          field.value,
+          variables,
+        ),
+        inline: field.inline,
+      })),
+    );
   }
 
   return embed;
