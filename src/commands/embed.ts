@@ -25,6 +25,7 @@ import {
 } from "../embeds/store.js";
 
 const TEMPLATES: { name: string; value: EmbedTemplate }[] = [
+  { name: "System Messages", value: "system" },
   { name: "Warning", value: "warning" },
   { name: "Maximum Warnings", value: "max-warning" },
   { name: "Timeout", value: "timeout" },
@@ -132,7 +133,7 @@ function buildPreview(style: EmbedStyle): EmbedBuilder {
 function buildEditor(draftId: string, draft: Draft) {
   const templateMenu = new StringSelectMenuBuilder()
     .setCustomId(`embed_template:${draftId}`)
-    .setPlaceholder("Choose the message to customize")
+    .setPlaceholder("Choose a message to customize")
     .addOptions(
       TEMPLATES.map((item) => ({
         label: item.name,
