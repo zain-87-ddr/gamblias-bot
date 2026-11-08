@@ -1,11 +1,12 @@
-
 import {
   EmbedBuilder,
   Events,
   type Client,
 } from "discord.js";
 
-import { applyEmbedStyle } from "./store.ts";
+import {
+  applyEmbedStyle,
+} from "./store.ts";
 
 function createSystemEmbed(
   content: string,
@@ -30,6 +31,9 @@ function createSystemEmbed(
     guildId,
     "system",
     embed,
+    {
+      content: safeContent,
+    },
   );
 }
 
@@ -39,7 +43,9 @@ function convertToEmbedPayload(
 ) {
   if (typeof payload === "string") {
     return {
-      embeds: [createSystemEmbed(payload, guildId)],
+      embeds: [
+        createSystemEmbed(payload, guildId),
+      ],
     };
   }
 
@@ -52,107 +58,122 @@ function convertToEmbedPayload(
     return payload;
   }
 
-  const existingEmbeds = Array.isArray(payload.embeds)
+  const existingEmbeds = Array.isArray(
+    payload.embeds,
+  )
     ? payload.embeds
     : [];
 
-  // Discord يسمح بحد أقصى 10 Embeds في الرسالة.
-  const embeds = [...existingEmbeds];
-
-  if (embeds.length < 10) {
-    embeds.push(
-      createSystemEmbed(payload.content, guildId),
-    );
+  /*
+   * لو الرسالة فيها Embed بالفعل:
+   * نحافظ عليها وعلى النص كما هما.
+   * ممنوع إضافة System Embed فوقها.
+   */
+  if (existingEmbeds.length > 0) {
+    return payload;
   }
 
   return {
     ...payload,
     content: undefined,
-    embeds,
+    embeds: [
+      createSystemEmbed(
+        payload.content,
+        guildId,
+      ),
+    ],
   };
 }
 
-function isEmbedStudioInteraction(interaction: any): boolean {
-  // استثناء أمر /embed نفسه.
+function isEmbedStudioInteraction(
+  interaction: any,
+): boolean {
   if (
-    typeof interaction.isChatInputCommand === "function" &&
+    typeof interaction.isChatInputCommand ===
+      "function" &&
     interaction.isChatInputCommand() &&
     interaction.commandName === "embed"
   ) {
     return true;
   }
 
-  // استثناء كل أزرار وقوائم ومودالات Embed Studio.
   return (
     typeof interaction.customId === "string" &&
     interaction.customId.startsWith("embed_")
   );
 }
 
-export function installEmbedPolicy(client: Client) {
-  /*
-   * تحويل message.reply إلى Embed.
-   * النصوص المرسلة مباشرة باستخدام channel.send
-   * لا يتم تغييرها هنا.
-   */
-  client.on(Events.MessageCreate, (message) => {
-    if (message.author.bot || !message.guild) {
-      return;
-    }
-
-    const originalReply = message.reply.bind(message);
-
-    (message as any).reply = (
-      payload: any,
-      ...args: any[]
-    ) => {
-      return originalReply(
-        convertToEmbedPayload(
-          payload,
-          message.guildId,
-        ),
-        ...args,
-      );
-    };
-  });
-
-  /*
-   * تحويل ردود أوامر وتفاعلات البوت إلى Embeds.
-   * Embed Studio مستثنى بالكامل حتى لا تتكرر رسائله.
-   */
-  client.on(Events.InteractionCreate, (interaction) => {
-    if (isEmbedStudioInteraction(interaction)) {
-      return;
-    }
-
-    const methods = [
-      "reply",
-      "followUp",
-      "editReply",
-      "update",
-    ] as const;
-
-    for (const method of methods) {
-      const original = (interaction as any)[method];
-
-      if (typeof original !== "function") {
-        continue;
+export function installEmbedPolicy(
+  client: Client,
+) {
+  client.on(
+    Events.MessageCreate,
+    (message) => {
+      if (
+        message.author.bot ||
+        !message.guild
+      ) {
+        return;
       }
 
-      const boundOriginal = original.bind(interaction);
+      const originalReply =
+        message.reply.bind(message);
 
-      (interaction as any)[method] = (
+      (message as any).reply = (
         payload: any,
         ...args: any[]
       ) => {
-        return boundOriginal(
+        return originalReply(
           convertToEmbedPayload(
             payload,
-            interaction.guildId,
+            message.guildId,
           ),
           ...args,
         );
       };
-    }
-  });
+    },
+  );
+
+  client.on(
+    Events.InteractionCreate,
+    (interaction) => {
+      if (
+        isEmbedStudioInteraction(interaction)
+      ) {
+        return;
+      }
+
+      const methods = [
+        "reply",
+        "followUp",
+        "editReply",
+        "update",
+      ] as const;
+
+      for (const method of methods) {
+        const original =
+          (interaction as any)[method];
+
+        if (typeof original !== "function") {
+          continue;
+        }
+
+        const boundOriginal =
+          original.bind(interaction);
+
+        (interaction as any)[method] = (
+          payload: any,
+          ...args: any[]
+        ) => {
+          return boundOriginal(
+            convertToEmbedPayload(
+              payload,
+              interaction.guildId,
+            ),
+            ...args,
+          );
+        };
+      }
+    },
+  );
 }
