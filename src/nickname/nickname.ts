@@ -1,3 +1,4 @@
+
 import {
   EmbedBuilder,
   PermissionFlagsBits,
@@ -172,6 +173,12 @@ export function registerNicknameSystem(client: Client) {
           .setFooter({
             text: "Gamblias • Nickname System",
           }),
+        {
+          member: targetMember.toString(),
+          moderator: message.member.toString(),
+          old_name: oldNickname,
+          new_name: nickname,
+        },
       );
 
       await message.reply({ embeds: [embed] });
