@@ -486,6 +486,24 @@ client.on(
  */
 
 client.on(Events.InteractionCreate, async (interaction) => {
+    if (interaction.isButton()) {
+    try {
+      const handled = await handleEmbedButton(interaction);
+
+      if (handled) return;
+    } catch (error) {
+      console.error("Embed interaction error:", error);
+
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: "An error occurred while saving the embed.",
+          ephemeral: true,
+        });
+      }
+
+      return;
+    }
+  }
   /*
    * =========================
    * Permissions Manager
