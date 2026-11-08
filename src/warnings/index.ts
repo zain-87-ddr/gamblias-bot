@@ -1,3 +1,4 @@
+
 import {
   EmbedBuilder,
   Events,
@@ -274,6 +275,12 @@ async function handleWarning(message: Message) {
       message.guild.id,
       "max-warning",
       maximumWarningsEmbed(target, moderator),
+      {
+        member: target.toString(),
+        moderator: moderator.toString(),
+        reason,
+        count: `${count}/${MAX_WARNINGS}`,
+      },
     );
 
     await channel.send({
@@ -298,6 +305,12 @@ async function handleWarning(message: Message) {
     message.guild.id,
     "warning",
     warningEmbed(target, moderator, reason, count),
+    {
+      member: target.toString(),
+      moderator: moderator.toString(),
+      reason,
+      count: `${count}/${MAX_WARNINGS}`,
+    },
   );
 
   await channel.send({
