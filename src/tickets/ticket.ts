@@ -51,6 +51,9 @@ export async function sendTicketPanel(channel: TextChannel) {
           "> ⚠️ من فضلك افتح تذكرة واحدة فقط للموضوع الواحد.",
       )
       .setFooter({ text: "Gamblias • Ticket System" }),
+    {
+      server: channel.guild.name,
+    },
   );
 
   const button = new ButtonBuilder()
@@ -228,6 +231,11 @@ export async function createTicket(
         }),
       )
       .setTimestamp(),
+    {
+      member: member.toString(),
+      ticket: ticketTypeName,
+      channel: channel.toString(),
+    },
   );
 
   await channel.send({
