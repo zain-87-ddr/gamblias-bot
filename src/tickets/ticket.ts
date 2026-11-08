@@ -14,6 +14,7 @@ import {
 } from "discord.js";
 
 import { sendTicketLog } from "../logs/index.ts";
+import { applyEmbedStyle } from "../embeds/store.ts";
 
 export const TICKET_PANEL_BUTTON = "ticket_select_type";
 export const TICKET_TYPE_MENU = "ticket_type_menu";
@@ -28,25 +29,29 @@ const TICKET_CATEGORY_ID = "";
 const TICKET_STAFF_ROLE_ID = "";
 
 export async function sendTicketPanel(channel: TextChannel) {
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle("🎫 Ticket System")
-    .setDescription(
-      "قبل ما تفتح تذكرة، اختار النوع المناسب لمشكلتك عشان نقدر نساعدك بشكل أسرع.\n\n" +
-        "### 📢 شكوى\n" +
-        "لو عندك شكوى على عضو أو موقف حصل داخل السيرفر وتحتاج تدخل الإدارة.\n\n" +
-        "### 🛡️ تقديم إدارة\n" +
-        "لو حابب تقدم على رتبة إدارية أو تنضم لفريق الإدارة.\n\n" +
-        "### 💡 اقتراح\n" +
-        "عندك فكرة أو اقتراح لتطوير السيرفر أو إضافة حاجة جديدة؟ شاركنا بيها هنا.\n\n" +
-        "### 👩 توثيق بنات\n" +
-        "لو محتاجة توثيق حسابك كعضوة، افتحي تذكرة من النوع ده وسيتم توجيهك للخطوات المطلوبة.\n\n" +
-        "### ❓ استفسار\n" +
-        "لو عندك أي سؤال أو محتاج تعرف حاجة بخصوص السيرفر، افتح تذكرة من النوع ده.\n\n" +
-        "> 🎫 **اختار نوع التكت من الزر الموجود بالأسفل.**\n" +
-        "> ⚠️ من فضلك افتح تذكرة واحدة فقط للموضوع الواحد.",
-    )
-    .setFooter({ text: "Gamblias • Ticket System" });
+  const embed = applyEmbedStyle(
+    channel.guild.id,
+    "ticket-panel",
+    new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle("🎫 Ticket System")
+      .setDescription(
+        "قبل ما تفتح تذكرة، اختار النوع المناسب لمشكلتك عشان نقدر نساعدك بشكل أسرع.\n\n" +
+          "### 📢 شكوى\n" +
+          "لو عندك شكوى على عضو أو موقف حصل داخل السيرفر وتحتاج تدخل الإدارة.\n\n" +
+          "### 🛡️ تقديم إدارة\n" +
+          "لو حابب تقدم على رتبة إدارية أو تنضم لفريق الإدارة.\n\n" +
+          "### 💡 اقتراح\n" +
+          "عندك فكرة أو اقتراح لتطوير السيرفر أو إضافة حاجة جديدة؟ شاركنا بيها هنا.\n\n" +
+          "### 👩 توثيق بنات\n" +
+          "لو محتاجة توثيق حسابك كعضوة، افتحي تذكرة من النوع ده وسيتم توجيهك للخطوات المطلوبة.\n\n" +
+          "### ❓ استفسار\n" +
+          "لو عندك أي سؤال أو محتاج تعرف حاجة بخصوص السيرفر، افتح تذكرة من النوع ده.\n\n" +
+          "> 🎫 **اختار نوع التكت من الزر الموجود بالأسفل.**\n" +
+          "> ⚠️ من فضلك افتح تذكرة واحدة فقط للموضوع الواحد.",
+      )
+      .setFooter({ text: "Gamblias • Ticket System" }),
+  );
 
   const button = new ButtonBuilder()
     .setCustomId(TICKET_PANEL_BUTTON)
@@ -54,8 +59,7 @@ export async function sendTicketPanel(channel: TextChannel) {
     .setEmoji("🎫")
     .setStyle(ButtonStyle.Primary);
 
-  const row =
-    new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
 
   await channel.send({
     embeds: [embed],
@@ -99,9 +103,7 @@ export function createTicketTypeMenu() {
         .setValue("inquiry"),
     );
 
-  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-    menu,
-  );
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
 }
 
 export function createTicketButtons() {
@@ -137,9 +139,7 @@ export function createAddMemberMenu() {
     .setMinValues(1)
     .setMaxValues(1);
 
-  return new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(
-    menu,
-  );
+  return new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(menu);
 }
 
 export async function createTicket(
@@ -207,24 +207,28 @@ export async function createTicket(
     permissionOverwrites,
   });
 
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle(`🎫 ${ticketTypeName}`)
-    .setDescription(
-      `**👤 صاحب التكت:** ${member}\n` +
-        `**📂 نوع التكت:** ${ticketTypeName}\n\n` +
-        "اكتب مشكلتك أو طلبك بالتفصيل، وسيقوم أحد أفراد الإدارة بمساعدتك.\n\n" +
-        "🙋 يمكن لأحد أفراد الإدارة استلام التكت.\n" +
-        "➕ يمكن للإدارة إضافة عضو آخر للتكت عند الحاجة.\n" +
-        "🔒 يمكن للإدارة قفل التكت بعد انتهاء الموضوع.",
-    )
-    .setThumbnail(
-      member.displayAvatarURL({
-        extension: "png",
-        size: 256,
-      }),
-    )
-    .setTimestamp();
+  const embed = applyEmbedStyle(
+    guild.id,
+    "ticket-open",
+    new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(`🎫 ${ticketTypeName}`)
+      .setDescription(
+        `**👤 صاحب التكت:** ${member}\n` +
+          `**📂 نوع التكت:** ${ticketTypeName}\n\n` +
+          "اكتب مشكلتك أو طلبك بالتفصيل، وسيقوم أحد أفراد الإدارة بمساعدتك.\n\n" +
+          "🙋 يمكن لأحد أفراد الإدارة استلام التكت.\n" +
+          "➕ يمكن للإدارة إضافة عضو آخر للتكت عند الحاجة.\n" +
+          "🔒 يمكن للإدارة قفل التكت بعد انتهاء الموضوع.",
+      )
+      .setThumbnail(
+        member.displayAvatarURL({
+          extension: "png",
+          size: 256,
+        }),
+      )
+      .setTimestamp(),
+  );
 
   await channel.send({
     content: `${member}`,
@@ -232,7 +236,6 @@ export async function createTicket(
     components: [createTicketButtons()],
   });
 
-  // Ticket Create Log
   await sendTicketLog(
     guild,
     "تم إنشاء تكت",
