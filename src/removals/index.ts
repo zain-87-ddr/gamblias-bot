@@ -1,4 +1,3 @@
-
 import {
   EmbedBuilder,
   Events,
@@ -7,6 +6,7 @@ import {
   type GuildMember,
   type Message,
 } from "discord.js";
+
 import { sendTemporaryReply } from "../cleanup/index.ts";
 import { removeWarning } from "../warnings/store.ts";
 import { hasBotPermission } from "../permissions/permissions.ts";
@@ -188,15 +188,11 @@ async function resolveAndValidateTarget(
 }
 
 async function handleUnwarn(message: Message) {
-  if (!message.guild || !message.member || message.author.bot) {
-    return;
-  }
+  if (!message.guild || !message.member || message.author.bot) return;
 
   const content = message.content.trim();
 
-  if (!isCommand(content, UNWARN_COMMAND)) {
-    return;
-  }
+  if (!isCommand(content, UNWARN_COMMAND)) return;
 
   if (
     !hasBotPermission(
@@ -220,18 +216,13 @@ async function handleUnwarn(message: Message) {
     "unwarn",
   );
 
-  if (!resolved) {
-    return;
-  }
+  if (!resolved) return;
 
   const reason = resolved.reason || "تم إزالة تحذير.";
   const channel = message.channel;
 
   if (!channel.isSendable()) {
-    await reply(
-      message,
-      "لا يمكن إرسال رسالة إزالة التحذير في هذه القناة.",
-    );
+    await reply(message, "لا يمكن إرسال رسالة إزالة التحذير في هذه القناة.");
     return;
   }
 
@@ -240,30 +231,41 @@ async function handleUnwarn(message: Message) {
     resolved.target.id,
   );
 
+  if (count === 0) {
+    await channel.send({
+      embeds: [noWarningsEmbed(resolved.target)],
+    });
+    return;
+  }
+
+  const embed = applyEmbedStyle(
+    message.guild.id,
+    "warning",
+    unwarnEmbed(
+      resolved.target,
+      message.member,
+      reason,
+      count,
+    ),
+    {
+      member: resolved.target.toString(),
+      moderator: message.member.toString(),
+      reason,
+      count,
+    },
+  );
+
   await channel.send({
-    embeds: [
-      count === 0
-        ? noWarningsEmbed(resolved.target)
-        : unwarnEmbed(
-            resolved.target,
-            message.member,
-            reason,
-            count,
-          ),
-    ],
+    embeds: [embed],
   });
 }
 
 async function handleUntimeout(message: Message) {
-  if (!message.guild || !message.member || message.author.bot) {
-    return;
-  }
+  if (!message.guild || !message.member || message.author.bot) return;
 
   const content = message.content.trim();
 
-  if (!isCommand(content, UNTIMEOUT_COMMAND)) {
-    return;
-  }
+  if (!isCommand(content, UNTIMEOUT_COMMAND)) return;
 
   if (
     !hasBotPermission(
@@ -287,17 +289,12 @@ async function handleUntimeout(message: Message) {
     "untimeout",
   );
 
-  if (!resolved) {
-    return;
-  }
+  if (!resolved) return;
 
   const channel = message.channel;
 
   if (!channel.isSendable()) {
-    await reply(
-      message,
-      "لا يمكن إرسال رسالة إزالة التايم في هذه القناة.",
-    );
+    await reply(message, "لا يمكن إرسال رسالة إزالة التايم في هذه القناة.");
     return;
   }
 
@@ -321,6 +318,10 @@ async function handleUntimeout(message: Message) {
       resolved.target,
       message.member,
     ),
+    {
+      member: resolved.target.toString(),
+      moderator: message.member.toString(),
+    },
   );
 
   await channel.send({
