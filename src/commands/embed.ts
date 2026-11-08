@@ -42,6 +42,92 @@ const TEMPLATES: { name: string; value: EmbedTemplate }[] = [
   { name: "Ticket Open", value: "ticket-open" },
 ];
 
+const PLACEHOLDERS: Record<EmbedTemplate, string[]> = {
+  system: ["{content}"],
+
+  warning: [
+    "{member}",
+    "{moderator}",
+    "{reason}",
+    "{count}",
+  ],
+
+  "max-warning": [
+    "{member}",
+    "{moderator}",
+    "{reason}",
+    "{count}",
+  ],
+
+  timeout: [
+    "{member}",
+    "{moderator}",
+    "{reason}",
+    "{duration}",
+  ],
+
+  untimeout: [
+    "{member}",
+    "{moderator}",
+  ],
+
+  ban: [
+    "{member}",
+    "{moderator}",
+    "{reason}",
+  ],
+
+  unban: [
+    "{member}",
+    "{moderator}",
+  ],
+
+  clear: [
+    "{amount}",
+    "{moderator}",
+    "{channel}",
+  ],
+
+  "role-add": [
+    "{member}",
+    "{moderator}",
+    "{role}",
+  ],
+
+  "role-remove": [
+    "{member}",
+    "{moderator}",
+    "{role}",
+  ],
+
+  lock: [
+    "{channel}",
+    "{moderator}",
+  ],
+
+  unlock: [
+    "{channel}",
+    "{moderator}",
+  ],
+
+  nickname: [
+    "{member}",
+    "{moderator}",
+    "{old_name}",
+    "{new_name}",
+  ],
+
+  "ticket-panel": [
+    "{server}",
+  ],
+
+  "ticket-open": [
+    "{member}",
+    "{ticket}",
+    "{channel}",
+  ],
+};
+
 type Draft = {
   userId: string;
   guildId: string;
@@ -115,14 +201,18 @@ function buildPreview(style: EmbedStyle): EmbedBuilder {
     embed.setColor(style.color);
   }
 
-  if (style.fields?.length) {
-    embed.addFields(...style.fields);
+  if (style.fields !== undefined) {
+    embed.setFields(...style.fields);
   }
 
   if (
     !embed.data.title &&
     !embed.data.description &&
-    !embed.data.fields?.length
+    !embed.data.fields?.length &&
+    !embed.data.author &&
+    !embed.data.footer &&
+    !embed.data.image &&
+    !embed.data.thumbnail
   ) {
     embed.setDescription("Your embed preview will appear here.");
   }
@@ -145,63 +235,89 @@ function buildEditor(draftId: string, draft: Draft) {
   const row1 = new ActionRowBuilder<StringSelectMenuBuilder>()
     .addComponents(templateMenu);
 
-  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`embed_edit:title:${draftId}`)
-      .setLabel("Title")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`embed_edit:description:${draftId}`)
-      .setLabel("Description")
-      .setStyle(ButtonStyle.Secondary),
-  );
+  const row2 = new ActionRowBuilder<ButtonBuilder>()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`embed_edit:title:${draftId}`)
+        .setLabel("Title")
+        .setStyle(ButtonStyle.Secondary),
 
-  const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`embed_edit:author:${draftId}`)
-      .setLabel("Author")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`embed_edit:footer:${draftId}`)
-      .setLabel("Footer")
-      .setStyle(ButtonStyle.Secondary),
-  );
+      new ButtonBuilder()
+        .setCustomId(`embed_edit:description:${draftId}`)
+        .setLabel("Description")
+        .setStyle(ButtonStyle.Secondary),
+    );
 
-  const row4 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`embed_edit:image:${draftId}`)
-      .setLabel("Image / GIF")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`embed_edit:thumbnail:${draftId}`)
-      .setLabel("Thumbnail")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`embed_edit:color:${draftId}`)
-      .setLabel("Color")
-      .setStyle(ButtonStyle.Secondary),
-  );
+  const row3 = new ActionRowBuilder<ButtonBuilder>()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`embed_edit:author:${draftId}`)
+        .setLabel("Author")
+        .setStyle(ButtonStyle.Secondary),
 
-  const row5 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`embed_edit:field:${draftId}`)
-      .setLabel("Add Field")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`embed_edit:inline:${draftId}`)
-      .setLabel("Add Inline Field")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`embed_save:${draftId}`)
-      .setLabel("Save")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`embed_cancel:${draftId}`)
-      .setLabel("Cancel")
-      .setStyle(ButtonStyle.Danger),
-  );
+      new ButtonBuilder()
+        .setCustomId(`embed_edit:footer:${draftId}`)
+        .setLabel("Footer")
+        .setStyle(ButtonStyle.Secondary),
+    );
+
+  const row4 = new ActionRowBuilder<ButtonBuilder>()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`embed_edit:image:${draftId}`)
+        .setLabel("Image / GIF")
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId(`embed_edit:thumbnail:${draftId}`)
+        .setLabel("Thumbnail")
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId(`embed_edit:color:${draftId}`)
+        .setLabel("Color")
+        .setStyle(ButtonStyle.Secondary),
+    );
+
+  const row5 = new ActionRowBuilder<ButtonBuilder>()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`embed_edit:field:${draftId}`)
+        .setLabel("Add Field")
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId(`embed_edit:inline:${draftId}`)
+        .setLabel("Add Inline Field")
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId(`embed_clear_fields:${draftId}`)
+        .setLabel("Clear Fields")
+        .setStyle(ButtonStyle.Danger),
+
+      new ButtonBuilder()
+        .setCustomId(`embed_save:${draftId}`)
+        .setLabel("Save")
+        .setStyle(ButtonStyle.Success),
+
+      new ButtonBuilder()
+        .setCustomId(`embed_cancel:${draftId}`)
+        .setLabel("Cancel")
+        .setStyle(ButtonStyle.Secondary),
+    );
+
+  const placeholders =
+    PLACEHOLDERS[draft.template].join(" • ");
 
   return {
+    content:
+      `**Gamblias — Embed Studio**\n` +
+      `Editing: **${draft.template}**\n\n` +
+      `**Available variables:**\n` +
+      `\`${placeholders || "No variables"}\`\n\n` +
+      `Use these variables in the title, description, fields or footer. ` +
+      `They will be replaced with real values when the system is connected.`,
     embeds: [buildPreview(draft.style)],
     components: [row1, row2, row3, row4, row5],
   };
@@ -222,7 +338,7 @@ function createInput(
     .setRequired(required)
     .setMaxLength(maxLength);
 
-  if (value) {
+  if (value !== undefined) {
     input.setValue(value);
   }
 
@@ -241,7 +357,8 @@ function createModal(
 
   for (const input of inputs) {
     modal.addComponents(
-      new ActionRowBuilder<TextInputBuilder>().addComponents(input),
+      new ActionRowBuilder<TextInputBuilder>()
+        .addComponents(input),
     );
   }
 
@@ -252,7 +369,9 @@ export const embedCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("embed")
     .setDescription("Open the Gamblias embed editor.")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString()),
+    .setDefaultMemberPermissions(
+      PermissionFlagsBits.ManageGuild.toString(),
+    ),
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guild) {
@@ -263,7 +382,11 @@ export const embedCommand: BotCommand = {
       return;
     }
 
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    if (
+      !interaction.memberPermissions?.has(
+        PermissionFlagsBits.ManageGuild,
+      )
+    ) {
       await interaction.reply({
         content: "You need Manage Server permission to use this command.",
         ephemeral: true,
@@ -286,8 +409,6 @@ export const embedCommand: BotCommand = {
     drafts.set(draftId, draft);
 
     await interaction.reply({
-      content:
-        "**Gamblias — Embed Studio**\nChoose a message, then use the buttons to customize its embed. The preview updates automatically.",
       ...buildEditor(draftId, draft),
       ephemeral: true,
     });
@@ -308,11 +429,20 @@ export async function handleEmbedInteraction(
 
   let draftId: string | undefined;
 
-  if (prefix === "embed_template") {
+  if (
+    prefix === "embed_template" ||
+    prefix === "embed_clear_fields"
+  ) {
     draftId = parts[1];
-  } else if (prefix === "embed_edit" || prefix === "embed_modal") {
+  } else if (
+    prefix === "embed_edit" ||
+    prefix === "embed_modal"
+  ) {
     draftId = parts[2];
-  } else if (prefix === "embed_save" || prefix === "embed_cancel") {
+  } else if (
+    prefix === "embed_save" ||
+    prefix === "embed_cancel"
+  ) {
     draftId = parts[1];
   } else {
     return false;
@@ -360,17 +490,31 @@ export async function handleEmbedInteraction(
       getEmbedStyle(draft.guildId, template) ?? {},
     );
 
-    await interaction.update({
-      content: `**Gamblias — Embed Studio**\nEditing: **${template}**`,
-      ...buildEditor(draftId, draft),
-    });
+    await interaction.update(
+      buildEditor(draftId, draft),
+    );
 
     return true;
   }
 
   if (interaction.isButton()) {
+    if (prefix === "embed_clear_fields") {
+      draft.style.fields = [];
+
+      await interaction.update(
+        buildEditor(draftId, draft),
+      );
+
+      return true;
+    }
+
     if (prefix === "embed_save") {
-      saveEmbedStyle(draft.guildId, draft.template, draft.style);
+      saveEmbedStyle(
+        draft.guildId,
+        draft.template,
+        draft.style,
+      );
+
       drafts.delete(draftId);
 
       await interaction.update({
@@ -403,48 +547,105 @@ export async function handleEmbedInteraction(
     const modal = (() => {
       switch (editAction) {
         case "title":
-          return createModal(draftId, "title", "Edit Title", [
-            createInput(
-              "value",
-              "Title",
-              draft.style.title,
-              TextInputStyle.Short,
-              false,
-              256,
-            ),
-          ]);
+          return createModal(
+            draftId,
+            "title",
+            "Edit Title",
+            [
+              createInput(
+                "value",
+                "Title (leave empty to remove)",
+                draft.style.title,
+                TextInputStyle.Short,
+                false,
+                256,
+              ),
+            ],
+          );
 
         case "description":
-          return createModal(draftId, "description", "Edit Description", [
-            createInput(
-              "value",
-              "Description",
-              draft.style.description,
-              TextInputStyle.Paragraph,
-              false,
-              4000,
-            ),
-          ]);
+          return createModal(
+            draftId,
+            "description",
+            "Edit Description",
+            [
+              createInput(
+                "value",
+                "Description (leave empty to remove)",
+                draft.style.description,
+                TextInputStyle.Paragraph,
+                false,
+                4000,
+              ),
+            ],
+          );
 
         case "author":
-          return createModal(draftId, "author", "Edit Author", [
-            createInput("name", "Author name", draft.style.author?.name, TextInputStyle.Short, false, 256),
-            createInput("url", "Author URL (optional)", draft.style.author?.url, TextInputStyle.Short, false, 500),
-            createInput("icon", "Author icon URL (optional)", draft.style.author?.iconURL, TextInputStyle.Short, false, 500),
-          ]);
+          return createModal(
+            draftId,
+            "author",
+            "Edit Author",
+            [
+              createInput(
+                "name",
+                "Author name",
+                draft.style.author?.name,
+                TextInputStyle.Short,
+                false,
+                256,
+              ),
+              createInput(
+                "url",
+                "Author URL (optional)",
+                draft.style.author?.url,
+                TextInputStyle.Short,
+                false,
+                500,
+              ),
+              createInput(
+                "icon",
+                "Author icon URL (optional)",
+                draft.style.author?.iconURL,
+                TextInputStyle.Short,
+                false,
+                500,
+              ),
+            ],
+          );
 
         case "footer":
-          return createModal(draftId, "footer", "Edit Footer", [
-            createInput("text", "Footer text", draft.style.footer?.text, TextInputStyle.Short, false, 2048),
-            createInput("icon", "Footer icon URL (optional)", draft.style.footer?.iconURL, TextInputStyle.Short, false, 500),
-          ]);
+          return createModal(
+            draftId,
+            "footer",
+            "Edit Footer",
+            [
+              createInput(
+                "text",
+                "Footer text (leave empty to remove)",
+                draft.style.footer?.text,
+                TextInputStyle.Short,
+                false,
+                2048,
+              ),
+              createInput(
+                "icon",
+                "Footer icon URL (optional)",
+                draft.style.footer?.iconURL,
+                TextInputStyle.Short,
+                false,
+                500,
+              ),
+            ],
+          );
 
         case "image":
         case "thumbnail":
           return createModal(
             draftId,
             editAction,
-            editAction === "image" ? "Edit Image / GIF" : "Edit Thumbnail",
+            editAction === "image"
+              ? "Edit Image / GIF"
+              : "Edit Thumbnail",
             [
               createInput(
                 "url",
@@ -460,28 +661,49 @@ export async function handleEmbedInteraction(
           );
 
         case "color":
-          return createModal(draftId, "color", "Edit Embed Color", [
-            createInput(
-              "value",
-              "Hex color, e.g. #5865F2",
-              draft.style.color === undefined
-                ? ""
-                : `#${draft.style.color.toString(16).padStart(6, "0")}`,
-              TextInputStyle.Short,
-              false,
-              7,
-            ),
-          ]);
+          return createModal(
+            draftId,
+            "color",
+            "Edit Embed Color",
+            [
+              createInput(
+                "value",
+                "Hex color, e.g. #5865F2",
+                draft.style.color === undefined
+                  ? ""
+                  : `#${draft.style.color.toString(16).padStart(6, "0")}`,
+                TextInputStyle.Short,
+                false,
+                7,
+              ),
+            ],
+          );
 
         case "field":
         case "inline":
           return createModal(
             draftId,
             editAction,
-            editAction === "inline" ? "Add Inline Field" : "Add Field",
+            editAction === "inline"
+              ? "Add Inline Field"
+              : "Add Field",
             [
-              createInput("name", "Field name", undefined, TextInputStyle.Short, true, 256),
-              createInput("value", "Field value", undefined, TextInputStyle.Paragraph, true, 1024),
+              createInput(
+                "name",
+                "Field name",
+                undefined,
+                TextInputStyle.Short,
+                true,
+                256,
+              ),
+              createInput(
+                "value",
+                "Field value",
+                undefined,
+                TextInputStyle.Paragraph,
+                true,
+                1024,
+              ),
             ],
           );
 
@@ -504,24 +726,42 @@ export async function handleEmbedInteraction(
     }
 
     const modalAction = parts[1];
+
     const get = (id: string) =>
       interaction.fields.getTextInputValue(id).trim();
 
     switch (modalAction) {
-      case "title":
-        draft.style.title = get("value");
-        break;
+      case "title": {
+        const value = get("value");
 
-      case "description":
-        draft.style.description = get("value");
+        if (value) {
+          draft.style.title = value;
+        } else {
+          draft.style.title = "";
+        }
         break;
+      }
+
+      case "description": {
+        const value = get("value");
+
+        if (value) {
+          draft.style.description = value;
+        } else {
+          draft.style.description = "";
+        }
+        break;
+      }
 
       case "author": {
         const name = get("name");
         const url = get("url");
         const iconURL = get("icon");
 
-        if ((url && !validUrl(url)) || (iconURL && !validUrl(iconURL))) {
+        if (
+          (url && !validUrl(url)) ||
+          (iconURL && !validUrl(iconURL))
+        ) {
           await interaction.reply({
             content: "Author URLs must be valid HTTP or HTTPS links.",
             ephemeral: true,
@@ -590,7 +830,10 @@ export async function handleEmbedInteraction(
             return true;
           }
 
-          draft.style.color = Number.parseInt(normalized, 16);
+          draft.style.color = Number.parseInt(
+            normalized,
+            16,
+          );
         } else {
           delete draft.style.color;
         }
@@ -617,6 +860,7 @@ export async function handleEmbedInteraction(
           value,
           inline: modalAction === "inline",
         });
+
         break;
       }
 
@@ -624,10 +868,9 @@ export async function handleEmbedInteraction(
         return false;
     }
 
-    await interaction.update({
-      content: `**Gamblias — Embed Studio**\nEditing: **${draft.template}**`,
-      ...buildEditor(draftId, draft),
-    });
+    await interaction.update(
+      buildEditor(draftId, draft),
+    );
 
     return true;
   }
