@@ -201,6 +201,11 @@ async function handleRoleCommand(
         .setFooter({
           text: "Gamblias • Role System",
         }),
+      {
+        member: targetMember.toString(),
+        moderator: message.member.toString(),
+        role: role.toString(),
+      },
     );
 
     await message.reply({ embeds: [embed] });
@@ -245,6 +250,11 @@ async function handleRoleCommand(
       .setFooter({
         text: "Gamblias • Role System",
       }),
+    {
+      member: targetMember.toString(),
+      moderator: message.member.toString(),
+      role: role.toString(),
+    },
   );
 
   await message.reply({ embeds: [embed] });
