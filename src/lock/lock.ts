@@ -1,4 +1,3 @@
-
 import {
   EmbedBuilder,
   PermissionFlagsBits,
@@ -22,32 +21,18 @@ export function registerLockSystem(client: Client) {
         return;
       }
 
-      if (!message.member) {
-        return;
-      }
+      if (!message.member) return;
 
       const permission =
-        content === "قفل"
-          ? "channels.lock"
-          : "channels.unlock";
+        content === "قفل" ? "channels.lock" : "channels.unlock";
 
       const permissionName =
-        content === "قفل"
-          ? "Lock"
-          : "Unlock";
+        content === "قفل" ? "Lock" : "Unlock";
 
-      if (
-        !hasBotPermission(
-          message.guild.id,
-          message.member,
-          permission,
-        )
-      ) {
+      if (!hasBotPermission(message.guild.id, message.member, permission)) {
         await message.reply({
-          content:
-            `❌ مش مسموح لك تستخدم Permission **${permissionName}**.`,
+          content: `❌ مش مسموح لك تستخدم Permission **${permissionName}**.`,
         });
-
         return;
       }
 
@@ -55,10 +40,8 @@ export function registerLockSystem(client: Client) {
 
       if (channel.type !== 0) {
         await message.reply({
-          content:
-            "❌ الأمر ده يشتغل في القنوات النصية فقط.",
+          content: "❌ الأمر ده يشتغل في القنوات النصية فقط.",
         });
-
         return;
       }
 
@@ -66,23 +49,16 @@ export function registerLockSystem(client: Client) {
 
       if (!botMember) {
         await message.reply({
-          content:
-            "❌ مش قادر أحدد البوت داخل السيرفر.",
+          content: "❌ مش قادر أحدد البوت داخل السيرفر.",
         });
-
         return;
       }
 
-      if (
-        !botMember.permissions.has(
-          PermissionFlagsBits.ManageChannels,
-        )
-      ) {
+      if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
         await message.reply({
           content:
             "❌ البوت محتاج صلاحية **Manage Channels** عشان يقدر يقفل أو يفتح القناة.",
         });
-
         return;
       }
 
@@ -96,26 +72,28 @@ export function registerLockSystem(client: Client) {
           },
         );
 
-        const embed = new EmbedBuilder()
-          .setColor(0xed4245)
-          .setTitle("🔒 تم قفل القناة")
-          .setDescription(
-            `📍 **القناة:** ${channel}\n` +
-            `🛡️ **بواسطة:** ${message.member}`,
-          )
-          .setTimestamp()
-          .setFooter({
-            text: "Gamblias • Lock System",
-          });
-
-        const styledEmbed = applyEmbedStyle(
+        const embed = applyEmbedStyle(
           message.guild.id,
           "lock",
-          embed,
+          new EmbedBuilder()
+            .setColor(0xed4245)
+            .setTitle("🔒 تم قفل القناة")
+            .setDescription(
+              `📍 **القناة:** ${channel}\n` +
+              `🛡️ **بواسطة:** ${message.member}`,
+            )
+            .setTimestamp()
+            .setFooter({
+              text: "Gamblias • Lock System",
+            }),
+          {
+            channel: channel.toString(),
+            moderator: message.member.toString(),
+          },
         );
 
         await message.reply({
-          embeds: [styledEmbed],
+          embeds: [embed],
         });
 
         return;
@@ -128,34 +106,35 @@ export function registerLockSystem(client: Client) {
         },
       );
 
-      const embed = new EmbedBuilder()
-        .setColor(0x57f287)
-        .setTitle("🔓 تم فتح القناة")
-        .setDescription(
-          `📍 **القناة:** ${channel}\n` +
-          `🛡️ **بواسطة:** ${message.member}`,
-        )
-        .setTimestamp()
-        .setFooter({
-          text: "Gamblias • Lock System",
-        });
-
-      const styledEmbed = applyEmbedStyle(
+      const embed = applyEmbedStyle(
         message.guild.id,
         "unlock",
-        embed,
+        new EmbedBuilder()
+          .setColor(0x57f287)
+          .setTitle("🔓 تم فتح القناة")
+          .setDescription(
+            `📍 **القناة:** ${channel}\n` +
+            `🛡️ **بواسطة:** ${message.member}`,
+          )
+          .setTimestamp()
+          .setFooter({
+            text: "Gamblias • Lock System",
+          }),
+        {
+          channel: channel.toString(),
+          moderator: message.member.toString(),
+        },
       );
 
       await message.reply({
-        embeds: [styledEmbed],
+        embeds: [embed],
       });
     } catch (error) {
       console.error("[LockSystem] Error:", error);
 
       if (!message.replied) {
         await message.reply({
-          content:
-            "❌ حصل خطأ أثناء قفل أو فتح القناة.",
+          content: "❌ حصل خطأ أثناء قفل أو فتح القناة.",
         });
       }
     }
