@@ -1,3 +1,4 @@
+
 import {
   EmbedBuilder,
   Events,
@@ -9,6 +10,7 @@ import {
 import { sendTemporaryReply } from "../cleanup/index.ts";
 import { removeWarning } from "../warnings/store.ts";
 import { hasBotPermission } from "../permissions/permissions.ts";
+import { applyEmbedStyle } from "../embeds/store.ts";
 
 const UNWARN_COMMAND = "انورن";
 const UNTIMEOUT_COMMAND = "انتايم";
@@ -312,13 +314,17 @@ async function handleUntimeout(message: Message) {
 
   await resolved.target.timeout(null, "إزالة التايم أوت");
 
+  const embed = applyEmbedStyle(
+    message.guild.id,
+    "untimeout",
+    untimeoutEmbed(
+      resolved.target,
+      message.member,
+    ),
+  );
+
   await channel.send({
-    embeds: [
-      untimeoutEmbed(
-        resolved.target,
-        message.member,
-      ),
-    ],
+    embeds: [embed],
   });
 }
 
