@@ -1,3 +1,4 @@
+
 import {
   EmbedBuilder,
   Events,
@@ -9,6 +10,7 @@ import {
 import { sendTemporaryReply } from "../cleanup/index.js";
 import { sendTimeoutLog } from "../logs/index.ts";
 import { hasBotPermission } from "../permissions/permissions.ts";
+import { applyEmbedStyle } from "../embeds/store.ts";
 
 const TIMEOUT_COMMAND = "تايم";
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -287,15 +289,19 @@ async function handleTimeout(message: Message) {
     reasonInput,
   );
 
+  const embed = applyEmbedStyle(
+    message.guild.id,
+    "timeout",
+    timeoutEmbed(
+      target,
+      moderator,
+      parsedDuration.label,
+      reasonInput,
+    ),
+  );
+
   await channel.send({
-    embeds: [
-      timeoutEmbed(
-        target,
-        moderator,
-        parsedDuration.label,
-        reasonInput,
-      ),
-    ],
+    embeds: [embed],
   });
 }
 
