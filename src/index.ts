@@ -15,6 +15,7 @@ import { registerAntiSpam } from "./automod/anti-spam.ts";
 import { registerBanSystem } from "./bans/index.ts";
 import { registerRoleSystem } from "./roles/roles.ts";
 import { commands } from "./commands/index.ts";
+import { handleEmbedButton } from "./commands/embed.js";
 import { getBotConfig } from "./config.ts";
 import { registerSaySystem } from "./say/say.ts";
 
