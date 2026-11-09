@@ -888,6 +888,7 @@ registerRoleSystem(client);
 registerAntiLink(client);
 registerAntiMassMention(client);
 registerAutoCleanupSystem(client);
+registerUndoSystem(client);
 
 async function replyWithError(
   interaction: ChatInputCommandInteraction,
