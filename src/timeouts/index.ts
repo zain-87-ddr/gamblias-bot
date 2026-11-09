@@ -1,4 +1,3 @@
-
 import {
   EmbedBuilder,
   Events,
@@ -7,10 +6,12 @@ import {
   type GuildMember,
   type Message,
 } from "discord.js";
+
 import { sendTemporaryReply } from "../cleanup/index.js";
 import { sendTimeoutLog } from "../logs/index.ts";
 import { hasBotPermission } from "../permissions/permissions.ts";
 import { applyEmbedStyle } from "../embeds/store.ts";
+import { createUndoRow } from "../moderation/undo.ts";
 
 const TIMEOUT_COMMAND = "تايم";
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -27,8 +28,14 @@ type ParsedDuration = {
   label: string;
 };
 
-async function reply(message: Message, content: string) {
-  await sendTemporaryReply(message, content);
+async function reply(
+  message: Message,
+  content: string,
+) {
+  await sendTemporaryReply(
+    message,
+    content,
+  );
 }
 
 function timeoutEmbed(
@@ -41,30 +48,65 @@ function timeoutEmbed(
     .setColor(0x5865f2)
     .setTitle("⏱️ تم إعطاء تايم أوت")
     .addFields(
-      { name: "👤 العضو", value: member.toString(), inline: true },
-      { name: "🛡️ بواسطة", value: moderator.toString(), inline: true },
-      { name: "⏳ المدة", value: durationLabel, inline: true },
-      { name: "📝 السبب", value: reason.slice(0, 1024), inline: false },
+      {
+        name: "👤 العضو",
+        value: member.toString(),
+        inline: true,
+      },
+      {
+        name: "🛡️ بواسطة",
+        value: moderator.toString(),
+        inline: true,
+      },
+      {
+        name: "⏳ المدة",
+        value: durationLabel,
+        inline: true,
+      },
+      {
+        name: "📝 السبب",
+        value: reason.slice(0, 1024),
+        inline: false,
+      },
     )
-    .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }))
+    .setThumbnail(
+      member.displayAvatarURL({
+        extension: "png",
+        size: 256,
+      }),
+    )
     .setTimestamp();
 }
 
-function formatDuration(value: number, unit: "m" | "h" | "d") {
+function formatDuration(
+  value: number,
+  unit: "m" | "h" | "d",
+) {
   if (unit === "m") {
-    return value === 1 ? "دقيقة واحدة" : `${value} دقائق`;
+    return value === 1
+      ? "دقيقة واحدة"
+      : `${value} دقائق`;
   }
 
   if (unit === "h") {
-    return value === 1 ? "ساعة واحدة" : `${value} ساعات`;
+    return value === 1
+      ? "ساعة واحدة"
+      : `${value} ساعات`;
   }
 
-  return value === 1 ? "يوم واحد" : `${value} أيام`;
+  return value === 1
+    ? "يوم واحد"
+    : `${value} أيام`;
 }
 
-function parseDuration(input: string): ParsedDuration | null {
-  const firstToken = input.split(/\s+/, 1)[0] ?? "";
-  const durationMatch = firstToken.match(/^(\d+)([mhd])$/i);
+function parseDuration(
+  input: string,
+): ParsedDuration | null {
+  const firstToken =
+    input.split(/\s+/, 1)[0] ?? "";
+
+  const durationMatch =
+    firstToken.match(/^(\d+)([mhd])$/i);
 
   if (!durationMatch) {
     if (/^\d+\D+$/i.test(firstToken)) {
@@ -78,7 +120,12 @@ function parseDuration(input: string): ParsedDuration | null {
   }
 
   const value = Number(durationMatch[1]);
-  const unit = durationMatch[2].toLowerCase() as "m" | "h" | "d";
+
+  const unit =
+    durationMatch[2].toLowerCase() as
+      | "m"
+      | "h"
+      | "d";
 
   const multiplier =
     unit === "m"
@@ -110,7 +157,10 @@ async function resolveTarget(
   const guild = message.guild;
 
   if (!guild) {
-    return { target: null, reason: input };
+    return {
+      target: null,
+      reason: input,
+    };
   }
 
   const mention = input.match(/^<@!?(\d+)>/);
@@ -118,8 +168,12 @@ async function resolveTarget(
   if (mention) {
     try {
       return {
-        target: await guild.members.fetch(mention[1]),
-        reason: input.slice(mention[0].length).trim(),
+        target: await guild.members.fetch(
+          mention[1],
+        ),
+        reason: input
+          .slice(mention[0].length)
+          .trim(),
       };
     } catch {
       await reply(
@@ -136,10 +190,13 @@ async function resolveTarget(
 
   if (message.reference?.messageId) {
     try {
-      const referencedMessage = await message.fetchReference();
+      const referencedMessage =
+        await message.fetchReference();
 
       return {
-        target: await guild.members.fetch(referencedMessage.author.id),
+        target: await guild.members.fetch(
+          referencedMessage.author.id,
+        ),
         reason: input,
         referencedMessage,
       };
@@ -162,8 +219,14 @@ async function resolveTarget(
   };
 }
 
-async function handleTimeout(message: Message) {
-  if (!message.guild || !message.member || message.author.bot) {
+async function handleTimeout(
+  message: Message,
+) {
+  if (
+    !message.guild ||
+    !message.member ||
+    message.author.bot
+  ) {
     return;
   }
 
@@ -190,32 +253,41 @@ async function handleTimeout(message: Message) {
       message,
       "❌ مش مسموح لك تستخدم Permission **Timeout**.",
     );
+
     return;
   }
 
-  const input = content.slice(TIMEOUT_COMMAND.length).trim();
+  const input = content
+    .slice(TIMEOUT_COMMAND.length)
+    .trim();
 
   const {
     target,
     reason: targetInput,
     referencedMessage,
-  } = await resolveTarget(message, input);
+  } = await resolveTarget(
+    message,
+    input,
+  );
 
   if (!target) {
     await reply(
       message,
       "يرجى الرد على رسالة العضو أو ذكره بعد الأمر.",
     );
+
     return;
   }
 
-  const parsedDuration = parseDuration(targetInput);
+  const parsedDuration =
+    parseDuration(targetInput);
 
   if (!parsedDuration) {
     await reply(
       message,
       "⏱️ مدة التايم غير صالحة. استخدم مدة مثل 5m أو 10m أو 30m أو 1h أو 1d، وبحد أقصى 28 يومًا.",
     );
+
     return;
   }
 
@@ -224,19 +296,26 @@ async function handleTimeout(message: Message) {
     .trim();
 
   if (!reasonInput) {
-    await reply(message, "يرجى كتابة سبب التايم.");
+    await reply(
+      message,
+      "يرجى كتابة سبب التايم.",
+    );
+
     return;
   }
 
   if (
     target.id === moderator.id ||
     target.id === message.guild.ownerId ||
-    moderator.roles.highest.comparePositionTo(target.roles.highest) <= 0
+    moderator.roles.highest.comparePositionTo(
+      target.roles.highest,
+    ) <= 0
   ) {
     await reply(
       message,
       "🚫 لا يمكنك عمل تايم لشخص رتبته أعلى منك أو مساوية لرتبتك.",
     );
+
     return;
   }
 
@@ -246,13 +325,18 @@ async function handleTimeout(message: Message) {
 
   if (
     target.id === message.client.user?.id ||
-    !botMember.permissions.has(PermissionFlagsBits.ModerateMembers) ||
-    botMember.roles.highest.comparePositionTo(target.roles.highest) <= 0
+    !botMember.permissions.has(
+      PermissionFlagsBits.ModerateMembers,
+    ) ||
+    botMember.roles.highest.comparePositionTo(
+      target.roles.highest,
+    ) <= 0
   ) {
     await reply(
       message,
       "لا يستطيع البوت عمل تايم لهذا العضو بسبب الصلاحيات.",
     );
+
     return;
   }
 
@@ -263,6 +347,7 @@ async function handleTimeout(message: Message) {
       message,
       "لا يمكن إرسال رسالة التايم في هذه القناة.",
     );
+
     return;
   }
 
@@ -270,9 +355,12 @@ async function handleTimeout(message: Message) {
     try {
       await referencedMessage.delete();
     } catch {
-      // Continue with the timeout if the original message cannot be deleted.
+      // Continue with the timeout if deletion fails.
     }
   }
+
+  const previousTimeoutUntil =
+    target.communicationDisabledUntilTimestamp;
 
   await target.timeout(
     parsedDuration.durationMs,
@@ -306,27 +394,47 @@ async function handleTimeout(message: Message) {
     },
   );
 
+  const undoRow = createUndoRow({
+    kind: "timeout",
+    guildId: message.guild.id,
+    targetId: target.id,
+    moderatorId: moderator.id,
+    reason: reasonInput,
+    previousTimeoutUntil,
+  });
+
   await channel.send({
     embeds: [embed],
+    components: [undoRow],
   });
 }
 
-export function registerTimeoutSystem(client: Client) {
-  client.on(Events.MessageCreate, async (message) => {
-    try {
-      await handleTimeout(message);
-    } catch (error) {
-      console.error("Timeout system error:", error);
-
-      if (
-        message.guild &&
-        message.content.trim().startsWith(TIMEOUT_COMMAND)
-      ) {
-        await reply(
-          message,
-          "حدث خطأ أثناء تنفيذ التايم. يرجى المحاولة مرة أخرى.",
+export function registerTimeoutSystem(
+  client: Client,
+) {
+  client.on(
+    Events.MessageCreate,
+    async (message) => {
+      try {
+        await handleTimeout(message);
+      } catch (error) {
+        console.error(
+          "Timeout system error:",
+          error,
         );
+
+        if (
+          message.guild &&
+          message.content
+            .trim()
+            .startsWith(TIMEOUT_COMMAND)
+        ) {
+          await reply(
+            message,
+            "حدث خطأ أثناء تنفيذ التايم. يرجى المحاولة مرة أخرى.",
+          );
+        }
       }
-    }
-  });
+    },
+  );
 }
