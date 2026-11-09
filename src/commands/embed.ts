@@ -1,11 +1,15 @@
-
 import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ContainerBuilder,
   EmbedBuilder,
+  MessageFlags,
   ModalBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
   StringSelectMenuBuilder,
+  TextDisplayBuilder,
   TextInputBuilder,
   TextInputStyle,
   PermissionFlagsBits,
@@ -17,12 +21,19 @@ import {
 } from "discord.js";
 
 import type { BotCommand } from "../types/command.js";
+
 import {
   getEmbedStyle,
   saveEmbedStyle,
+  DEFAULT_EMBED_SEPARATORS,
   type EmbedStyle,
   type EmbedTemplate,
-} from "../embeds/store.js";
+  type EmbedSeparatorPosition,
+} from "../embeds/store.ts";
+
+import {
+  renderEmbedContainer,
+} from "../embeds/render.ts";
 
 const TEMPLATES: { name: string; value: EmbedTemplate }[] = [
   { name: "System Messages", value: "system" },
@@ -128,6 +139,17 @@ const PLACEHOLDERS: Record<EmbedTemplate, string[]> = {
   ],
 };
 
+const SEPARATOR_POSITIONS: EmbedSeparatorPosition[] = [
+  "top",
+  "after-author",
+  "after-title",
+  "after-description",
+  "after-fields",
+  "between-fields",
+  "before-footer",
+  "bottom",
+];
+
 type Draft = {
   userId: string;
   guildId: string;
@@ -145,13 +167,19 @@ const drafts = new Map<string, Draft>();
 function validUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
+
+    return (
+      url.protocol === "https:" ||
+      url.protocol === "http:"
+    );
   } catch {
     return false;
   }
 }
 
-function buildPreview(style: EmbedStyle): EmbedBuilder {
+function buildPreview(
+  style: EmbedStyle,
+): ContainerBuilder {
   const embed = new EmbedBuilder();
 
   if (style.title !== undefined) {
@@ -159,7 +187,9 @@ function buildPreview(style: EmbedStyle): EmbedBuilder {
   }
 
   if (style.description !== undefined) {
-    embed.setDescription(style.description || null);
+    embed.setDescription(
+      style.description || null,
+    );
   }
 
   if (style.author !== undefined) {
@@ -167,7 +197,9 @@ function buildPreview(style: EmbedStyle): EmbedBuilder {
       style.author.name
         ? {
             name: style.author.name,
-            ...(style.author.url ? { url: style.author.url } : {}),
+            ...(style.author.url
+              ? { url: style.author.url }
+              : {}),
             ...(style.author.iconURL
               ? { iconURL: style.author.iconURL }
               : {}),
@@ -190,11 +222,15 @@ function buildPreview(style: EmbedStyle): EmbedBuilder {
   }
 
   if (style.image !== undefined) {
-    embed.setImage(style.image || null);
+    embed.setImage(
+      style.image || null,
+    );
   }
 
   if (style.thumbnail !== undefined) {
-    embed.setThumbnail(style.thumbnail || null);
+    embed.setThumbnail(
+      style.thumbnail || null,
+    );
   }
 
   if (style.color !== undefined) {
@@ -202,124 +238,203 @@ function buildPreview(style: EmbedStyle): EmbedBuilder {
   }
 
   if (style.fields !== undefined) {
-    embed.setFields(...style.fields);
+    embed.setFields(
+      ...style.fields,
+    );
   }
 
-  if (
-    !embed.data.title &&
-    !embed.data.description &&
-    !embed.data.fields?.length &&
-    !embed.data.author &&
-    !embed.data.footer &&
-    !embed.data.image &&
-    !embed.data.thumbnail
-  ) {
-    embed.setDescription("Your embed preview will appear here.");
+  const hasContent =
+    Boolean(embed.data.title) ||
+    Boolean(embed.data.description) ||
+    Boolean(embed.data.fields?.length) ||
+    Boolean(embed.data.author) ||
+    Boolean(embed.data.footer) ||
+    Boolean(embed.data.image) ||
+    Boolean(embed.data.thumbnail);
+
+  if (!hasContent) {
+    embed.setDescription(
+      "Your embed preview will appear here.",
+    );
   }
 
-  return embed;
+  return renderEmbedContainer(
+    embed,
+    style.separators,
+  );
 }
 
-function buildEditor(draftId: string, draft: Draft) {
-  const templateMenu = new StringSelectMenuBuilder()
-    .setCustomId(`embed_template:${draftId}`)
-    .setPlaceholder("Choose a message to customize")
-    .addOptions(
-      TEMPLATES.map((item) => ({
-        label: item.name,
-        value: item.value,
-        default: item.value === draft.template,
-      })),
-    );
+function buildEditor(
+  draftId: string,
+  draft: Draft,
+) {
+  const templateMenu =
+    new StringSelectMenuBuilder()
+      .setCustomId(
+        `embed_template:${draftId}`,
+      )
+      .setPlaceholder(
+        "Choose a message to customize",
+      )
+      .addOptions(
+        TEMPLATES.map((item) => ({
+          label: item.name,
+          value: item.value,
+          default:
+            item.value === draft.template,
+        })),
+      );
 
-  const row1 = new ActionRowBuilder<StringSelectMenuBuilder>()
-    .addComponents(templateMenu);
+  const row1 =
+    new ActionRowBuilder<StringSelectMenuBuilder>()
+      .addComponents(templateMenu);
 
-  const row2 = new ActionRowBuilder<ButtonBuilder>()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`embed_edit:title:${draftId}`)
-        .setLabel("Title")
-        .setStyle(ButtonStyle.Secondary),
+  const row2 =
+    new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:title:${draftId}`,
+          )
+          .setLabel("Title")
+          .setStyle(ButtonStyle.Secondary),
 
-      new ButtonBuilder()
-        .setCustomId(`embed_edit:description:${draftId}`)
-        .setLabel("Description")
-        .setStyle(ButtonStyle.Secondary),
-    );
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:description:${draftId}`,
+          )
+          .setLabel("Description")
+          .setStyle(ButtonStyle.Secondary),
+      );
 
-  const row3 = new ActionRowBuilder<ButtonBuilder>()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`embed_edit:author:${draftId}`)
-        .setLabel("Author")
-        .setStyle(ButtonStyle.Secondary),
+  const row3 =
+    new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:author:${draftId}`,
+          )
+          .setLabel("Author")
+          .setStyle(ButtonStyle.Secondary),
 
-      new ButtonBuilder()
-        .setCustomId(`embed_edit:footer:${draftId}`)
-        .setLabel("Footer")
-        .setStyle(ButtonStyle.Secondary),
-    );
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:footer:${draftId}`,
+          )
+          .setLabel("Footer")
+          .setStyle(ButtonStyle.Secondary),
 
-  const row4 = new ActionRowBuilder<ButtonBuilder>()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`embed_edit:image:${draftId}`)
-        .setLabel("Image / GIF")
-        .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:separators:${draftId}`,
+          )
+          .setLabel("Separators")
+          .setEmoji("➖")
+          .setStyle(ButtonStyle.Secondary),
+      );
 
-      new ButtonBuilder()
-        .setCustomId(`embed_edit:thumbnail:${draftId}`)
-        .setLabel("Thumbnail")
-        .setStyle(ButtonStyle.Secondary),
+  const row4 =
+    new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:image:${draftId}`,
+          )
+          .setLabel("Image / GIF")
+          .setStyle(ButtonStyle.Secondary),
 
-      new ButtonBuilder()
-        .setCustomId(`embed_edit:color:${draftId}`)
-        .setLabel("Color")
-        .setStyle(ButtonStyle.Secondary),
-    );
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:thumbnail:${draftId}`,
+          )
+          .setLabel("Thumbnail")
+          .setStyle(ButtonStyle.Secondary),
 
-  const row5 = new ActionRowBuilder<ButtonBuilder>()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`embed_edit:field:${draftId}`)
-        .setLabel("Add Field")
-        .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:color:${draftId}`,
+          )
+          .setLabel("Color")
+          .setStyle(ButtonStyle.Secondary),
+      );
 
-      new ButtonBuilder()
-        .setCustomId(`embed_edit:inline:${draftId}`)
-        .setLabel("Add Inline Field")
-        .setStyle(ButtonStyle.Secondary),
+  const row5 =
+    new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:field:${draftId}`,
+          )
+          .setLabel("Add Field")
+          .setStyle(ButtonStyle.Secondary),
 
-      new ButtonBuilder()
-        .setCustomId(`embed_clear_fields:${draftId}`)
-        .setLabel("Clear Fields")
-        .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_edit:inline:${draftId}`,
+          )
+          .setLabel("Add Inline Field")
+          .setStyle(ButtonStyle.Secondary),
 
-      new ButtonBuilder()
-        .setCustomId(`embed_save:${draftId}`)
-        .setLabel("Save")
-        .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_clear_fields:${draftId}`,
+          )
+          .setLabel("Clear Fields")
+          .setStyle(ButtonStyle.Danger),
 
-      new ButtonBuilder()
-        .setCustomId(`embed_cancel:${draftId}`)
-        .setLabel("Cancel")
-        .setStyle(ButtonStyle.Secondary),
-    );
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_save:${draftId}`,
+          )
+          .setLabel("Save")
+          .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+          .setCustomId(
+            `embed_cancel:${draftId}`,
+          )
+          .setLabel("Cancel")
+          .setStyle(ButtonStyle.Secondary),
+      );
 
   const placeholders =
     PLACEHOLDERS[draft.template].join(" • ");
 
+  const intro =
+    new ContainerBuilder()
+      .setAccentColor(0x5865f2)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## Gamblias — Embed Studio\n` +
+          `Editing: **${draft.template}**`,
+        ),
+      )
+      .addSeparatorComponents(
+        new SeparatorBuilder()
+          .setDivider(true)
+          .setSpacing(
+            SeparatorSpacingSize.Small,
+          ),
+      )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `**Available variables:**\n` +
+          `\`${placeholders || "No variables"}\`\n\n` +
+          "Use these variables in the title, description, fields or footer. " +
+          "They will be replaced with real values when the system is connected.",
+        ),
+      );
+
   return {
-    content:
-      `**Gamblias — Embed Studio**\n` +
-      `Editing: **${draft.template}**\n\n` +
-      `**Available variables:**\n` +
-      `\`${placeholders || "No variables"}\`\n\n` +
-      `Use these variables in the title, description, fields or footer. ` +
-      `They will be replaced with real values when the system is connected.`,
-    embeds: [buildPreview(draft.style)],
-    components: [row1, row2, row3, row4, row5],
+    components: [
+      intro,
+      buildPreview(draft.style),
+      row1,
+      row2,
+      row3,
+      row4,
+      row5,
+    ],
   };
 }
 
@@ -331,12 +446,13 @@ function createInput(
   required = false,
   maxLength = 4000,
 ) {
-  const input = new TextInputBuilder()
-    .setCustomId(id)
-    .setLabel(label)
-    .setStyle(style)
-    .setRequired(required)
-    .setMaxLength(maxLength);
+  const input =
+    new TextInputBuilder()
+      .setCustomId(id)
+      .setLabel(label)
+      .setStyle(style)
+      .setRequired(required)
+      .setMaxLength(maxLength);
 
   if (value !== undefined) {
     input.setValue(value);
@@ -351,9 +467,12 @@ function createModal(
   title: string,
   inputs: TextInputBuilder[],
 ) {
-  const modal = new ModalBuilder()
-    .setCustomId(`embed_modal:${action}:${draftId}`)
-    .setTitle(title);
+  const modal =
+    new ModalBuilder()
+      .setCustomId(
+        `embed_modal:${action}:${draftId}`,
+      )
+      .setTitle(title);
 
   for (const input of inputs) {
     modal.addComponents(
@@ -365,20 +484,40 @@ function createModal(
   return modal;
 }
 
+function createStatusContainer(
+  title: string,
+  description: string,
+  color: number,
+): ContainerBuilder {
+  return new ContainerBuilder()
+    .setAccentColor(color)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## ${title}\n${description}`,
+      ),
+    );
+}
+
 export const embedCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("embed")
-    .setDescription("Open the Gamblias embed editor.")
+    .setDescription(
+      "Open the Gamblias embed editor.",
+    )
     .setDefaultMemberPermissions(
       PermissionFlagsBits.ManageGuild.toString(),
     ),
 
-  async execute(interaction: ChatInputCommandInteraction) {
+  async execute(
+    interaction: ChatInputCommandInteraction,
+  ) {
     if (!interaction.guild) {
       await interaction.reply({
-        content: "This command can only be used inside a server.",
+        content:
+          "This command can only be used inside a server.",
         ephemeral: true,
       });
+
       return;
     }
 
@@ -388,21 +527,29 @@ export const embedCommand: BotCommand = {
       )
     ) {
       await interaction.reply({
-        content: "You need Manage Server permission to use this command.",
+        content:
+          "You need Manage Server permission to use this command.",
         ephemeral: true,
       });
+
       return;
     }
 
-    const draftId = interaction.id.slice(-12);
-    const template: EmbedTemplate = "warning";
+    const draftId =
+      interaction.id.slice(-12);
+
+    const template: EmbedTemplate =
+      "warning";
 
     const draft: Draft = {
       userId: interaction.user.id,
       guildId: interaction.guild.id,
       template,
       style: structuredClone(
-        getEmbedStyle(interaction.guild.id, template) ?? {},
+        getEmbedStyle(
+          interaction.guild.id,
+          template,
+        ) ?? {},
       ),
     };
 
@@ -410,7 +557,9 @@ export const embedCommand: BotCommand = {
 
     await interaction.reply({
       ...buildEditor(draftId, draft),
-      ephemeral: true,
+      flags:
+        MessageFlags.Ephemeral |
+        MessageFlags.IsComponentsV2,
     });
   },
 };
@@ -456,38 +605,56 @@ export async function handleEmbedInteraction(
 
   if (!draft) {
     await interaction.reply({
-      content: "This editor has expired. Run /embed again.",
+      content:
+        "This editor has expired. Run /embed again.",
       ephemeral: true,
     });
+
     return true;
   }
 
   if (draft.userId !== interaction.user.id) {
     await interaction.reply({
-      content: "Only the person who opened this editor can use it.",
+      content:
+        "Only the person who opened this editor can use it.",
       ephemeral: true,
     });
+
     return true;
   }
+
+  /*
+   * Template Select Menu
+   */
 
   if (interaction.isStringSelectMenu()) {
     if (prefix !== "embed_template") {
       return false;
     }
 
-    const template = interaction.values[0] as EmbedTemplate;
+    const template =
+      interaction.values[0] as EmbedTemplate;
 
-    if (!TEMPLATES.some((item) => item.value === template)) {
+    if (
+      !TEMPLATES.some(
+        (item) => item.value === template,
+      )
+    ) {
       await interaction.reply({
         content: "Unknown embed template.",
         ephemeral: true,
       });
+
       return true;
     }
 
     draft.template = template;
+
     draft.style = structuredClone(
-      getEmbedStyle(draft.guildId, template) ?? {},
+      getEmbedStyle(
+        draft.guildId,
+        template,
+      ) ?? {},
     );
 
     await interaction.update(
@@ -496,6 +663,10 @@ export async function handleEmbedInteraction(
 
     return true;
   }
+
+  /*
+   * Buttons
+   */
 
   if (interaction.isButton()) {
     if (prefix === "embed_clear_fields") {
@@ -518,9 +689,13 @@ export async function handleEmbedInteraction(
       drafts.delete(draftId);
 
       await interaction.update({
-        content: `Saved the embed design for **${draft.template}**.`,
-        embeds: [],
-        components: [],
+        components: [
+          createStatusContainer(
+            "Embed Saved",
+            `The embed design for **${draft.template}** has been saved successfully.`,
+            0x57f287,
+          ),
+        ],
       });
 
       return true;
@@ -530,9 +705,13 @@ export async function handleEmbedInteraction(
       drafts.delete(draftId);
 
       await interaction.update({
-        content: "Embed editor closed. No changes were saved.",
-        embeds: [],
-        components: [],
+        components: [
+          createStatusContainer(
+            "Editor Closed",
+            "No changes were saved.",
+            0xed4245,
+          ),
+        ],
       });
 
       return true;
@@ -594,6 +773,7 @@ export async function handleEmbedInteraction(
                 false,
                 256,
               ),
+
               createInput(
                 "url",
                 "Author URL (optional)",
@@ -602,6 +782,7 @@ export async function handleEmbedInteraction(
                 false,
                 500,
               ),
+
               createInput(
                 "icon",
                 "Author icon URL (optional)",
@@ -627,6 +808,7 @@ export async function handleEmbedInteraction(
                 false,
                 2048,
               ),
+
               createInput(
                 "icon",
                 "Footer icon URL (optional)",
@@ -637,6 +819,28 @@ export async function handleEmbedInteraction(
               ),
             ],
           );
+
+        case "separators": {
+          const currentSeparators =
+            draft.style.separators ??
+            DEFAULT_EMBED_SEPARATORS;
+
+          return createModal(
+            draftId,
+            "separators",
+            "Edit Native Separators",
+            [
+              createInput(
+                "positions",
+                "Comma-separated positions",
+                currentSeparators.join(", "),
+                TextInputStyle.Short,
+                false,
+                300,
+              ),
+            ],
+          );
+        }
 
         case "image":
         case "thumbnail":
@@ -671,7 +875,9 @@ export async function handleEmbedInteraction(
                 "Hex color, e.g. #5865F2",
                 draft.style.color === undefined
                   ? ""
-                  : `#${draft.style.color.toString(16).padStart(6, "0")}`,
+                  : `#${draft.style.color
+                      .toString(16)
+                      .padStart(6, "0")}`,
                 TextInputStyle.Short,
                 false,
                 7,
@@ -696,6 +902,7 @@ export async function handleEmbedInteraction(
                 true,
                 256,
               ),
+
               createInput(
                 "value",
                 "Field value",
@@ -717,8 +924,13 @@ export async function handleEmbedInteraction(
     }
 
     await interaction.showModal(modal);
+
     return true;
   }
+
+  /*
+   * Modal Submissions
+   */
 
   if (interaction.isModalSubmit()) {
     if (prefix !== "embed_modal") {
@@ -728,28 +940,24 @@ export async function handleEmbedInteraction(
     const modalAction = parts[1];
 
     const get = (id: string) =>
-      interaction.fields.getTextInputValue(id).trim();
+      interaction.fields
+        .getTextInputValue(id)
+        .trim();
 
     switch (modalAction) {
       case "title": {
         const value = get("value");
 
-        if (value) {
-          draft.style.title = value;
-        } else {
-          draft.style.title = "";
-        }
+        draft.style.title = value;
+
         break;
       }
 
       case "description": {
         const value = get("value");
 
-        if (value) {
-          draft.style.description = value;
-        } else {
-          draft.style.description = "";
-        }
+        draft.style.description = value;
+
         break;
       }
 
@@ -763,9 +971,11 @@ export async function handleEmbedInteraction(
           (iconURL && !validUrl(iconURL))
         ) {
           await interaction.reply({
-            content: "Author URLs must be valid HTTP or HTTPS links.",
+            content:
+              "Author URLs must be valid HTTP or HTTPS links.",
             ephemeral: true,
           });
+
           return true;
         }
 
@@ -774,6 +984,7 @@ export async function handleEmbedInteraction(
           ...(url ? { url } : {}),
           ...(iconURL ? { iconURL } : {}),
         };
+
         break;
       }
 
@@ -781,11 +992,16 @@ export async function handleEmbedInteraction(
         const text = get("text");
         const iconURL = get("icon");
 
-        if (iconURL && !validUrl(iconURL)) {
+        if (
+          iconURL &&
+          !validUrl(iconURL)
+        ) {
           await interaction.reply({
-            content: "Footer icon must be a valid HTTP or HTTPS URL.",
+            content:
+              "Footer icon must be a valid HTTP or HTTPS URL.",
             ephemeral: true,
           });
+
           return true;
         }
 
@@ -793,6 +1009,50 @@ export async function handleEmbedInteraction(
           text,
           ...(iconURL ? { iconURL } : {}),
         };
+
+        break;
+      }
+
+      case "separators": {
+        const raw = get("positions");
+
+        if (!raw) {
+          draft.style.separators = [];
+          break;
+        }
+
+        const positions = [
+          ...new Set(
+            raw
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+          ),
+        ];
+
+        const invalid = positions.filter(
+          (item) =>
+            !SEPARATOR_POSITIONS.includes(
+              item as EmbedSeparatorPosition,
+            ),
+        );
+
+        if (invalid.length > 0) {
+          await interaction.reply({
+            content:
+              "Invalid separator position(s): " +
+              invalid.join(", ") +
+              "\n\nAllowed positions:\n" +
+              SEPARATOR_POSITIONS.join(", "),
+            ephemeral: true,
+          });
+
+          return true;
+        }
+
+        draft.style.separators =
+          positions as EmbedSeparatorPosition[];
+
         break;
       }
 
@@ -800,11 +1060,16 @@ export async function handleEmbedInteraction(
       case "thumbnail": {
         const url = get("url");
 
-        if (url && !validUrl(url)) {
+        if (
+          url &&
+          !validUrl(url)
+        ) {
           await interaction.reply({
-            content: "Use a valid HTTP or HTTPS image URL.",
+            content:
+              "Use a valid HTTP or HTTPS image URL.",
             ephemeral: true,
           });
+
           return true;
         }
 
@@ -813,6 +1078,7 @@ export async function handleEmbedInteraction(
         } else {
           draft.style.thumbnail = url;
         }
+
         break;
       }
 
@@ -820,23 +1086,32 @@ export async function handleEmbedInteraction(
         const value = get("value");
 
         if (value) {
-          const normalized = value.replace(/^#/, "");
+          const normalized =
+            value.replace(/^#/, "");
 
-          if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+          if (
+            !/^[0-9a-fA-F]{6}$/.test(
+              normalized,
+            )
+          ) {
             await interaction.reply({
-              content: "Invalid color. Example: #5865F2",
+              content:
+                "Invalid color. Example: #5865F2",
               ephemeral: true,
             });
+
             return true;
           }
 
-          draft.style.color = Number.parseInt(
-            normalized,
-            16,
-          );
+          draft.style.color =
+            Number.parseInt(
+              normalized,
+              16,
+            );
         } else {
           delete draft.style.color;
         }
+
         break;
       }
 
@@ -847,11 +1122,15 @@ export async function handleEmbedInteraction(
 
         draft.style.fields ??= [];
 
-        if (draft.style.fields.length >= 25) {
+        if (
+          draft.style.fields.length >= 25
+        ) {
           await interaction.reply({
-            content: "Discord allows a maximum of 25 fields in one embed.",
+            content:
+              "Discord allows a maximum of 25 fields in one embed.",
             ephemeral: true,
           });
+
           return true;
         }
 
