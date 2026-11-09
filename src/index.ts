@@ -13,6 +13,7 @@ import { registerLockSystem } from "./lock/lock.ts";
 import { registerNicknameSystem } from "./nickname/nickname.ts";
 import { registerAntiMassMention } from "./automod/anti-mass-mention.ts";
 import { registerAntiSpam } from "./automod/anti-spam.ts";
+import { registerUndoSystem } from "./moderation/undo.ts";
 import { registerBanSystem } from "./bans/index.ts";
 import { registerRoleSystem } from "./roles/roles.ts";
 import { commands } from "./commands/index.ts";
