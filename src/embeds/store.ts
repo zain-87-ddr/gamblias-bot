@@ -26,6 +26,23 @@ export type EmbedTemplate =
   | "ticket-panel"
   | "ticket-open";
 
+export type EmbedSeparatorPosition =
+  | "top"
+  | "after-author"
+  | "after-title"
+  | "after-description"
+  | "after-fields"
+  | "between-fields"
+  | "before-footer"
+  | "bottom";
+
+export const DEFAULT_EMBED_SEPARATORS: EmbedSeparatorPosition[] = [
+  "top",
+  "after-title",
+  "after-description",
+  "before-footer",
+];
+
 export type EmbedFieldStyle = {
   name: string;
   value: string;
@@ -51,6 +68,7 @@ export type EmbedStyle = {
   thumbnail?: string;
   color?: number;
   fields?: EmbedFieldStyle[];
+  separators?: EmbedSeparatorPosition[];
 };
 
 export type EmbedVariables = Record<
@@ -141,10 +159,6 @@ export function applyEmbedStyle(
     return embed;
   }
 
-  /*
-   * Title:
-   * لو فيه تصميم مخصص، نستبدل العنوان القديم.
-   */
   if (style.title !== undefined) {
     embed.setTitle(
       replaceEmbedVariables(
@@ -154,11 +168,6 @@ export function applyEmbedStyle(
     );
   }
 
-  /*
-   * Description:
-   * الوصف المخصص يستبدل الوصف الافتراضي بالكامل.
-   * مش بنضيفه فوق الوصف القديم.
-   */
   if (style.description !== undefined) {
     embed.setDescription(
       replaceEmbedVariables(
@@ -168,9 +177,6 @@ export function applyEmbedStyle(
     );
   }
 
-  /*
-   * Author
-   */
   if (style.author !== undefined) {
     embed.setAuthor(
       style.author.name
@@ -190,9 +196,6 @@ export function applyEmbedStyle(
     );
   }
 
-  /*
-   * Footer
-   */
   if (style.footer !== undefined) {
     embed.setFooter(
       style.footer.text
@@ -209,36 +212,22 @@ export function applyEmbedStyle(
     );
   }
 
-  /*
-   * Image
-   */
   if (style.image !== undefined) {
     embed.setImage(
       style.image || null,
     );
   }
 
-  /*
-   * Thumbnail
-   */
   if (style.thumbnail !== undefined) {
     embed.setThumbnail(
       style.thumbnail || null,
     );
   }
 
-  /*
-   * Color
-   */
   if (style.color !== undefined) {
     embed.setColor(style.color);
   }
 
-  /*
-   * Fields:
-   * نستبدل الحقول القديمة بالكامل.
-   * حتى لو المصفوفة فاضية، ده معناه مسح كل الحقول.
-   */
   if (style.fields !== undefined) {
     embed.setFields(
       ...style.fields.map((field) => ({
@@ -254,6 +243,12 @@ export function applyEmbedStyle(
       })),
     );
   }
+
+  (
+    embed as import("discord.js").EmbedBuilder & {
+      __gambliasSeparators?: EmbedSeparatorPosition[];
+    }
+  ).__gambliasSeparators = style.separators;
 
   return embed;
 }
