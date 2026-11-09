@@ -1,4 +1,3 @@
-
 import {
   EmbedBuilder,
   Events,
@@ -7,6 +6,7 @@ import {
   type GuildMember,
   type Message,
 } from "discord.js";
+
 import { sendTemporaryReply } from "../cleanup/index.ts";
 import {
   sendMaxWarningLog,
@@ -14,6 +14,8 @@ import {
 } from "../logs/index.ts";
 import { hasBotPermission } from "../permissions/permissions.ts";
 import { applyEmbedStyle } from "../embeds/store.ts";
+import { createUndoRow } from "../moderation/undo.ts";
+
 import {
   addWarning,
   initializeWarningStore,
@@ -43,8 +45,15 @@ function warningEmbed(
         inline: true,
       },
     )
-    .setDescription("يرجى الالتزام بقوانين السيرفر لتجنب الإجراءات القادمة.")
-    .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }))
+    .setDescription(
+      "يرجى الالتزام بقوانين السيرفر لتجنب الإجراءات القادمة.",
+    )
+    .setThumbnail(
+      member.displayAvatarURL({
+        extension: "png",
+        size: 256,
+      }),
+    )
     .setTimestamp();
 }
 
@@ -61,29 +70,45 @@ function maximumWarningsEmbed(
       { name: "🔢 التحذيرات", value: "3/3", inline: true },
       {
         name: "⏳ الإجراء",
-        value: "كتم لمدة 30 دقيقة",
+        value: "تايم أوت لمدة 30 دقيقة",
         inline: false,
       },
     )
-    .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }))
+    .setThumbnail(
+      member.displayAvatarURL({
+        extension: "png",
+        size: 256,
+      }),
+    )
     .setTimestamp();
 }
 
-async function reply(message: Message, content: string) {
+async function reply(
+  message: Message,
+  content: string,
+) {
   await sendTemporaryReply(message, content);
 }
 
-async function resolveTarget(message: Message, remainder: string) {
+async function resolveTarget(
+  message: Message,
+  remainder: string,
+) {
   const guild = message.guild;
 
   if (!guild) {
-    return { target: null, reason: remainder };
+    return {
+      target: null,
+      reason: remainder,
+    };
   }
 
   const mention = remainder.match(/^<@!?(\d+)>/);
 
   if (mention) {
-    const reason = remainder.slice(mention[0].length).trim();
+    const reason = remainder
+      .slice(mention[0].length)
+      .trim();
 
     try {
       return {
@@ -91,7 +116,10 @@ async function resolveTarget(message: Message, remainder: string) {
         reason,
       };
     } catch {
-      await reply(message, "لم يتم العثور على العضو المذكور في السيرفر.");
+      await reply(
+        message,
+        "لم يتم العثور على العضو المذكور في السيرفر.",
+      );
 
       return {
         target: null,
@@ -102,10 +130,13 @@ async function resolveTarget(message: Message, remainder: string) {
 
   if (message.reference?.messageId) {
     try {
-      const referencedMessage = await message.fetchReference();
+      const referencedMessage =
+        await message.fetchReference();
 
       return {
-        target: await guild.members.fetch(referencedMessage.author.id),
+        target: await guild.members.fetch(
+          referencedMessage.author.id,
+        ),
         reason: remainder,
         referencedMessage,
       };
@@ -146,8 +177,14 @@ function canModerate(
   );
 }
 
-async function handleWarning(message: Message) {
-  if (!message.guild || !message.member || message.author.bot) {
+async function handleWarning(
+  message: Message,
+) {
+  if (
+    !message.guild ||
+    !message.member ||
+    message.author.bot
+  ) {
     return;
   }
 
@@ -174,6 +211,7 @@ async function handleWarning(message: Message) {
       message,
       "❌ مش مسموح لك تستخدم Permission **Warn**.",
     );
+
     return;
   }
 
@@ -185,18 +223,26 @@ async function handleWarning(message: Message) {
     target,
     reason,
     referencedMessage,
-  } = await resolveTarget(message, remainder);
+  } = await resolveTarget(
+    message,
+    remainder,
+  );
 
   if (!target) {
     await reply(
       message,
       "يرجى الرد على رسالة العضو أو ذكره بعد الأمر.",
     );
+
     return;
   }
 
   if (!reason) {
-    await reply(message, "يرجى كتابة سبب التحذير.");
+    await reply(
+      message,
+      "يرجى كتابة سبب التحذير.",
+    );
+
     return;
   }
 
@@ -205,6 +251,7 @@ async function handleWarning(message: Message) {
       message,
       "🚫 لا يمكنك تحذير شخص رتبته أعلى منك أو مساوية لرتبتك.",
     );
+
     return;
   }
 
@@ -226,6 +273,7 @@ async function handleWarning(message: Message) {
       message,
       "لا يستطيع البوت اتخاذ إجراء على هذا العضو بسبب الصلاحيات.",
     );
+
     return;
   }
 
@@ -236,6 +284,7 @@ async function handleWarning(message: Message) {
       message,
       "لا يمكن إرسال رسائل التحذير في هذه القناة.",
     );
+
     return;
   }
 
@@ -243,7 +292,7 @@ async function handleWarning(message: Message) {
     try {
       await referencedMessage.delete();
     } catch {
-      // Continue the warning if the original message cannot be deleted.
+      // Continue if the referenced message cannot be deleted.
     }
   }
 
@@ -253,6 +302,9 @@ async function handleWarning(message: Message) {
   );
 
   if (count === MAX_WARNINGS) {
+    const previousTimeoutUntil =
+      target.communicationDisabledUntilTimestamp;
+
     await target.timeout(
       TIMEOUT_DURATION_MS,
       "الوصول إلى ثلاثة تحذيرات",
@@ -274,7 +326,10 @@ async function handleWarning(message: Message) {
     const embed = applyEmbedStyle(
       message.guild.id,
       "max-warning",
-      maximumWarningsEmbed(target, moderator),
+      maximumWarningsEmbed(
+        target,
+        moderator,
+      ),
       {
         member: target.toString(),
         moderator: moderator.toString(),
@@ -283,9 +338,20 @@ async function handleWarning(message: Message) {
       },
     );
 
+    const undoRow = createUndoRow({
+      kind: "warn-max",
+      guildId: message.guild.id,
+      targetId: target.id,
+      moderatorId: moderator.id,
+      reason,
+      previousTimeoutUntil,
+      warningRestoreCount: 2,
+    });
+
     await channel.send({
       content: target.toString(),
       embeds: [embed],
+      components: [undoRow],
     });
 
     return;
@@ -304,7 +370,12 @@ async function handleWarning(message: Message) {
   const embed = applyEmbedStyle(
     message.guild.id,
     "warning",
-    warningEmbed(target, moderator, reason, count),
+    warningEmbed(
+      target,
+      moderator,
+      reason,
+      count,
+    ),
     {
       member: target.toString(),
       moderator: moderator.toString(),
@@ -313,13 +384,24 @@ async function handleWarning(message: Message) {
     },
   );
 
+  const undoRow = createUndoRow({
+    kind: "warn",
+    guildId: message.guild.id,
+    targetId: target.id,
+    moderatorId: moderator.id,
+    reason,
+  });
+
   await channel.send({
     content: target.toString(),
     embeds: [embed],
+    components: [undoRow],
   });
 }
 
-export function registerWarningSystem(client: Client) {
+export function registerWarningSystem(
+  client: Client,
+) {
   void initializeWarningStore().catch((error) => {
     console.error(
       "Could not initialize warning store:",
